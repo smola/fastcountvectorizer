@@ -21,7 +21,7 @@ def test_fastcountvectorizer_ngram1():
     )
     check_cv(
         cv,
-        input=[b"cba", b"ade"],
+        input=["cba", "ade"],
         output=lil_matrix([[1, 1, 1, 0, 0], [1, 0, 0, 1, 1]]).tocsr(),
         vocab=["a", "b", "c", "d", "e"],
     )
@@ -43,7 +43,7 @@ def test_fastcountvectorizer_ngram1_2():
     )
     check_cv(
         cv,
-        input=[b"cba", b"ade"],
+        input=["cba", "ade"],
         output=lil_matrix(
             [[1, 0, 1, 1, 1, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 1, 1]]
         ).tocsr(),

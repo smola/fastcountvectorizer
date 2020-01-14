@@ -50,6 +50,7 @@ import itertools
 from operator import itemgetter
 import scipy.sparse as sp
 from sklearn.utils import _IS_32BIT
+from ._ext import _count_ngrams
 
 
 class FastCountVectorizer:
@@ -100,7 +101,7 @@ class FastCountVectorizer:
         counts.resize(prefix_counts.shape)
         counts += prefix_counts
 
-        return dict(vocab), counts
+        return dict(vocab), counts.astype(self.dtype)
 
     def _count_fixed_vocab(self, raw_documents, vocab):
         values = array("i")
@@ -150,19 +151,7 @@ class FastCountVectorizer:
         return s
 
     def _count_vocab_from_docs(self, n, docs, vocab):
-        values = []
-        array_len = 0
-        indices = []
-        indptr = [0]
-
-        for doc in docs:
-            counters = defaultdict(int)
-            for term in self._analyze_fixed(doc, n):
-                counters[term] += 1
-            values.append(list(counters.values()))
-            indices.append([vocab[k] for k in counters.keys()])
-            array_len += len(counters)
-            indptr.append(array_len)
+        values, indices, indptr = _count_ngrams(n, docs, vocab)
 
         if indptr[-1] > np.iinfo(np.int32).max:  # = 2**31 - 1
             if _IS_32BIT:
@@ -174,13 +163,6 @@ class FastCountVectorizer:
                     ).format(indptr[-1])
                 )
 
-        values = np.fromiter(
-            itertools.chain.from_iterable(values), dtype=np.intc, count=array_len
-        )
-        indices = np.fromiter(
-            itertools.chain.from_iterable(indices), dtype=np.intc, count=array_len
-        )
-        indptr = np.asarray(indptr, dtype=np.intc)
         counts = sp.csr_matrix(
             (values, indices, indptr),
             shape=(len(indptr) - 1, len(vocab)),
@@ -264,17 +246,20 @@ class FastCountVectorizer:
 def _expand_counts(vocab, counts, min_ngram, max_ngram):
     initial_len = len(vocab)
 
+    i_ = array("i")
     j_ = array("i")
     for term, idx in list(vocab.items()):
         j_.append(idx)
+        i_.append(idx)
         for n in range(min_ngram, max_ngram):
             new_term = term[-n:]
             new_idx = vocab[new_term]
             j_.append(new_idx)
+            i_.append(idx)
 
     n_iter = max_ngram - min_ngram + 1
     j_ = np.frombuffer(j_, dtype=np.intc)
-    i_ = np.repeat(np.arange(initial_len, dtype=np.intc), n_iter)
+    i_ = np.frombuffer(i_, dtype=np.intc)
     data = np.ones(initial_len * n_iter)
 
     modifier = sp.coo_matrix(

@@ -1,4 +1,12 @@
 import setuptools
+from distutils.core import Extension
+
+ext_modules = [Extension(
+    "fastcountvectorizer._ext",
+    sources = ["fastcountvectorizer/_ext.cpp"],
+    depends= ["fastcountvectorizer/buzhash.h"],
+    language="c++",
+)]
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
@@ -19,6 +27,7 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.6",
-    install_requires=["scikit-learn",],
+    install_requires=["scikit-learn", "numpy"],
     tests_require=["pytest"],
+    ext_modules = ext_modules,
 )
