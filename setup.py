@@ -1,10 +1,12 @@
 import setuptools
 from distutils.core import Extension
+import numpy
 
 ext_modules = [Extension(
     "fastcountvectorizer._ext",
     sources = ["fastcountvectorizer/_ext.cpp"],
     depends= ["fastcountvectorizer/buzhash.h"],
+    include_dirs=[numpy.get_include()],
     language="c++",
 )]
 
@@ -20,13 +22,13 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/smola/fastcountvectorizer",
-    packages=setuptools.find_packages(),
+    packages=["fastcountvectorizer", "fastcountvectorizer.tests"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
-    python_requires=">=3.6",
+    python_requires=">=3.5",
     install_requires=["scikit-learn", "numpy"],
     tests_require=["pytest"],
     ext_modules = ext_modules,
