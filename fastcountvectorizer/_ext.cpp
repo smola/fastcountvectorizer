@@ -14,36 +14,58 @@
 
 #include "buzhash.h"
 
+struct FullLightStringHash; /* Forward */
+
 class FullLightString {
- public:
-  char* data;
-  size_t len;
+ private:
+  char* _data;
+  size_t _byte_len;
   size_t _hash;
-  unsigned char kind;
+  unsigned char _kind;
   bool _owned;
 
-  FullLightString(char* data, size_t len, unsigned char kind, size_t hash)
-      : data(data), len(len), _hash(hash), kind(kind), _owned(false) {}
+  char* copy_data() const {
+    char* new_data = new char[_byte_len];
+    memcpy(new_data, _data, _byte_len);
+    return new_data;
+  }
+
+ public:
+  FullLightString(char* data, const size_t byte_len, const unsigned char kind,
+                  const size_t hash)
+      : _data(data),
+        _byte_len(byte_len),
+        _hash(hash),
+        _kind(kind),
+        _owned(false) {}
 
   FullLightString() : FullLightString(NULL, 0, PyUnicode_1BYTE_KIND, 0) {}
 
   void own() {
     if (!_owned) {
-      const char* old_data = data;
-      data = new char[len];
-      memcpy(data, old_data, len);
+      _data = copy_data();
       _owned = true;
     }
   }
 
   void free() {
+    assert(!_owned);
     if (_owned) {
-      delete data;
+      delete _data;
     }
   }
 
   PyObject* toPyObject() const {
-    return PyUnicode_FromKindAndData(kind, data, len / kind);
+    return PyUnicode_FromKindAndData(_kind, _data, _byte_len / _kind);
+  }
+
+  friend FullLightStringHash;
+
+  bool operator==(const FullLightString& other) const {
+    if (_byte_len != other._byte_len) {
+      return false;
+    }
+    return memcmp(_data, other._data, _byte_len) == 0;
   }
 };
 
@@ -53,35 +75,30 @@ struct FullLightStringHash {
   }
 };
 
-struct FullLightStringEqual {
-  bool operator()(const FullLightString& lhs,
-                  const FullLightString& rhs) const {
-    if (lhs.len != rhs.len) {
-      return false;
-    }
-    return memcmp(lhs.data, rhs.data, lhs.len) == 0;
-  }
-};
+struct LightStringHash;  /* Forward */
+struct LightStringEqual; /* Forward */
 
 class LightString {
- public:
-  char* data;
+ private:
+  char* _data;
   size_t _hash;
 
-  LightString(char* data, size_t hash) : data(data), _hash(hash) {}
+ public:
+  LightString(char* data, const size_t hash) : _data(data), _hash(hash) {}
 
   LightString() : LightString(NULL, 0) {}
 
-  FullLightString to_full(const size_t len, const unsigned char kind) const {
+  FullLightString to_full(const size_t byte_len,
+                          const unsigned char kind) const {
     PyObject* obj;
     FullLightString str;
     if (kind == PyUnicode_1BYTE_KIND) {
-      return FullLightString(data, len, kind, _hash);
+      return FullLightString(_data, byte_len, kind, _hash);
     }
-    obj = PyUnicode_FromKindAndData(kind, data, len / kind);
+    obj = PyUnicode_FromKindAndData(kind, _data, byte_len / kind);
     if (PyUnicode_KIND(obj) == kind) {
       Py_DECREF(obj);
-      return FullLightString(data, len, kind, _hash);
+      return FullLightString(_data, byte_len, kind, _hash);
     }
     str = FullLightString((char*)PyUnicode_1BYTE_DATA(obj),
                           PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj),
@@ -93,6 +110,9 @@ class LightString {
     Py_DECREF(obj);
     return str;
   }
+
+  friend LightStringHash;
+  friend LightStringEqual;
 };
 
 struct LightStringHash {
@@ -102,21 +122,20 @@ struct LightStringHash {
 };
 
 class LightStringEqual {
+ private:
+  size_t _len;
+
  public:
-  size_t len;
+  LightStringEqual() : _len(0) {}
 
-  LightStringEqual() : len(0) {}
-
-  LightStringEqual(size_t len) : len(len) {}
+  LightStringEqual(size_t len) : _len(len) {}
 
   bool operator()(const LightString& lhs, const LightString& rhs) const {
-    return memcmp(lhs.data, rhs.data, len) == 0;
+    return memcmp(lhs._data, rhs._data, _len) == 0;
   }
 };
 
-typedef std::unordered_map<FullLightString, int, FullLightStringHash,
-                           FullLightStringEqual>
-    vocab_map;
+typedef std::unordered_map<FullLightString, int, FullLightStringHash> vocab_map;
 typedef std::unordered_map<LightString, int, LightStringHash, LightStringEqual>
     counter_map;
 
@@ -132,6 +151,16 @@ class CharNgramCounter {
 
   void prepare_vocab() {}
 
+  static PyObject* _vector_to_numpy(const std::vector<size_t>* v) {
+    PyObject* a;
+    const size_t size = v->size();
+    npy_intp shape[1];
+    shape[0] = (npy_intp)size;
+    a = PyArray_SimpleNew(1, shape, NPY_UINT64);
+    memcpy(PyArray_DATA((PyArrayObject*)a), v->data(), size * sizeof(size_t));
+    return a;
+  }
+
  public:
   CharNgramCounter(const int n) : n(n) {
     prepare_vocab();
@@ -143,15 +172,9 @@ class CharNgramCounter {
   }
 
   ~CharNgramCounter() {
-    if (values != NULL) {
-      delete values;
-    }
-    if (indices != NULL) {
-      delete indices;
-    }
-    if (indptr != NULL) {
-      delete indptr;
-    }
+    delete values;
+    delete indices;
+    delete indptr;
   }
 
   void process_one(PyUnicodeObject* obj) {
@@ -170,8 +193,8 @@ class CharNgramCounter {
 
     while (cur_byte_idx <= byte_len - n * kind) {
       // read ngram
-      str.data = data_ptr;
-      str._hash = buzhash::Buzhash<size_t>::hash_once(data_ptr, n * kind);
+      str = LightString(
+          data_ptr, buzhash::Buzhash<size_t>::hash_once(data_ptr, n * kind));
       cur_byte_idx += kind;
       data_ptr += kind;
 
@@ -206,16 +229,6 @@ class CharNgramCounter {
     }
   }
 
-  PyObject* _vector_to_numpy(const std::vector<size_t>* v) {
-    PyObject* a;
-    const size_t size = v->size();
-    npy_intp shape[1];
-    shape[0] = (npy_intp)size;
-    a = PyArray_SimpleNew(1, shape, NPY_UINT64);
-    memcpy(PyArray_DATA((PyArrayObject*)a), v->data(), size * sizeof(size_t));
-    return a;
-  }
-
   PyObject* get_values() {
     PyObject* v = _vector_to_numpy(values);
     delete values;
@@ -241,7 +254,6 @@ class CharNgramCounter {
     PyObject* key;
     PyObject* value;
     vocab_map::iterator it = vocab.begin();
-    char* data;
     int error = 0;
     while (it != vocab.end()) {
       if (error == 0) {
@@ -253,9 +265,9 @@ class CharNgramCounter {
         Py_DECREF(key);
         Py_DECREF(value);
       }
-      data = it->first.data;
+      FullLightString str = it->first;
       it = vocab.erase(it);
-      free(data);
+      str.free();
     }
     return 0;
   }
@@ -272,8 +284,9 @@ static int CharNgramCounter_init(CharNgramCounterObject* self, PyObject* args,
   Py_ssize_t n;
   static const char* kwlist[] = {"n", "vocab", NULL};
   if (!PyArg_ParseTupleAndKeywords(args, kwds, "nO", const_cast<char**>(kwlist),
-                                   &n, &vocab))
+                                   &n, &vocab)) {
     return -1;
+  }
 
   if (!PyDict_Check(vocab)) {
     PyErr_SetString(PyExc_TypeError, "vocab must be a dict");
