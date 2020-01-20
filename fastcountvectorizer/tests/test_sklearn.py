@@ -660,7 +660,6 @@ def test_vectorizer_min_df():
     assert len(vect.stop_words_) == 5
 
 
-@pytest.mark.skip(reason="unsupported")
 def test_count_binary_occurrences():
     # by default multiple occurrences are counted as longs
     test_data = ["aaabc", "abbde"]

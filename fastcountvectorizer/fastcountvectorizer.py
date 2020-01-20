@@ -97,6 +97,11 @@ class FastCountVectorizer(BaseEstimator):
         If float, the parameter represents a proportion of documents, integer
         absolute counts.
 
+    binary : bool, default=False
+        If True, all non zero counts are set to 1. This is useful for discrete
+        probabilistic models that model binary events rather than integer
+        counts.
+
     dtype : type, optional
         Type of the matrix returned by fit_transform() or transform(). Defaults
         to np.float64.
@@ -120,6 +125,7 @@ class FastCountVectorizer(BaseEstimator):
         analyzer="char",
         min_df=1,
         max_df=1.0,
+        binary=False,
         dtype=np.int64,
     ):
         self.input = input
@@ -127,6 +133,7 @@ class FastCountVectorizer(BaseEstimator):
         self.analyzer = analyzer
         self.min_df = min_df
         self.max_df = max_df
+        self.binary = binary
         self.dtype = dtype
         self.vocabulary_ = None
 
@@ -168,6 +175,8 @@ class FastCountVectorizer(BaseEstimator):
         vocab, X = self._count_vocab(raw_documents)
         X, vocab, stop_words = self._limit_features(X, vocab)
         X = self._sort_features(X, vocab)
+        if self.binary:
+            X.data.fill(1)
         self.vocabulary_ = vocab
         self.stop_words_ = stop_words
         return X
@@ -190,6 +199,8 @@ class FastCountVectorizer(BaseEstimator):
         """
         self._validate_raw_documents(raw_documents)
         _, X = self._count_fixed_vocab(raw_documents, self.vocabulary_)
+        if self.binary:
+            X.data.fill(1)
         return X
 
     def get_feature_names(self):
