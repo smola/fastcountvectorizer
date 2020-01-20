@@ -30,7 +30,7 @@ jobs:
           python-version: '3.8.x'
           architecture: 'x64'
       - run: pip install flake8 flake8-bugbear
-      - run: flake8
+      - run: flake8 --exclude=fastcountvectorizer/tests/test_sklearn.py
   lint-clang-format:
     name: lint (clang-format)
     runs-on: ubuntu-latest

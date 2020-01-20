@@ -50,10 +50,11 @@ import itertools
 from operator import itemgetter
 import scipy.sparse as sp
 from sklearn.utils import _IS_32BIT
+from sklearn.base import BaseEstimator
 from ._ext import _count_ngrams
 
 
-class FastCountVectorizer:
+class FastCountVectorizer(BaseEstimator):
     """Convert a collection of text documents to a matrix of token counts
 
     This implementation produces a sparse representation of the counts using
@@ -122,7 +123,6 @@ class FastCountVectorizer:
         self.max_df = max_df
         self.dtype = dtype
         self.vocabulary_ = None
-        self._validate_params()
 
     def fit(self, raw_documents, y=None):
         """Learn a vocabulary dictionary of all tokens in the raw documents.
@@ -155,6 +155,10 @@ class FastCountVectorizer:
         X : array, [n_samples, n_features]
             Document-term matrix.
         """
+        # Parameters are only validated on fit (not on __init__)
+        # to keep compatibility with CountVectorizer.
+        self._validate_params()
+        self._validate_raw_documents(raw_documents)
         vocab, X = self._count_vocab(raw_documents)
         X, vocab = self._limit_features(X, vocab)
         X = self._sort_features(X, vocab)
@@ -177,6 +181,7 @@ class FastCountVectorizer:
         X : sparse matrix, [n_samples, n_features]
             Document-term matrix.
         """
+        self._validate_raw_documents(raw_documents)
         _, X = self._count_fixed_vocab(raw_documents, self.vocabulary_)
         return X
 
@@ -208,6 +213,12 @@ class FastCountVectorizer:
             raise ValueError(
                 "Invalid value for ngram_range=%s "
                 "minimum ngram size must be equal or greater than 1."
+            )
+
+    def _validate_raw_documents(self, raw_documents):
+        if isinstance(raw_documents, str):
+            raise ValueError(
+                "Iterable over raw text documents expected, " "string object received."
             )
 
     def _count_vocab(self, docs):
