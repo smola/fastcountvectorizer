@@ -54,18 +54,107 @@ from ._ext import _count_ngrams
 
 
 class FastCountVectorizer:
-    def __init__(self, ngram_range, min_df=1, max_df=1.0, dtype=np.float64):
+    """Convert a collection of text documents to a matrix of token counts
+
+    This implementation produces a sparse representation of the counts using
+    scipy.sparse.csr_matrix.
+
+    Parameters
+    ----------
+    input : string {'content'}
+        Indicates the input type. Currently, only 'content' (default value) is
+        supported. The input is expected to be a sequence of items of type
+        string.
+
+    ngram_range : tuple (min_n, max_n), default=(1, 1)
+        The lower and upper boundary of the range of n-values for different
+        word n-grams or char n-grams to be extracted. All values of n such
+        such that min_n <= n <= max_n will be used. For example an
+        ``ngram_range`` of ``(1, 1)`` means only unigrams, ``(1, 2)`` means
+        unigrams and bigrams, and ``(2, 2)`` means only bigrams.
+
+    analyzer : string, {'char'}
+        Analyzer mode. If set to 'char' (default value, only option) character
+        ngrams will be used.
+
+        .. warning:: FastCountVectorizer does not apply any kind of
+           preprocessing to inputs. Note that this is different from
+           scikit-learn's CountVectorizer performs, which applies whitespace
+           normalization.
+
+    max_df : float in range [0.0, 1.0] or int, default=1.0
+        When building the vocabulary ignore terms that have a document
+        frequency strictly higher than the given threshold (corpus-specific
+        stop words).
+        If float, the parameter represents a proportion of documents, integer
+        absolute counts.
+
+    min_df : float in range [0.0, 1.0] or int, default=1
+        When building the vocabulary ignore terms that have a document
+        frequency strictly lower than the given threshold. This value is also
+        called cut-off in the literature.
+        If float, the parameter represents a proportion of documents, integer
+        absolute counts.
+
+    dtype : type, optional
+        Type of the matrix returned by fit_transform() or transform(). Defaults
+        to np.float64.
+
+    Attributes
+    ----------
+    vocabulary_ : dict
+        A mapping of terms to feature indices.
+    """
+
+    def __init__(
+        self,
+        input="content",
+        ngram_range=(1, 1),
+        analyzer="char",
+        min_df=1,
+        max_df=1.0,
+        dtype=np.int64,
+    ):
+        self.input = input
         self.ngram_range = ngram_range
+        self.analyzer = analyzer
         self.min_df = min_df
         self.max_df = max_df
         self.dtype = dtype
         self.vocabulary_ = None
+        self._validate_params()
 
     def fit(self, raw_documents, y=None):
+        """Learn a vocabulary dictionary of all tokens in the raw documents.
+
+        Parameters
+        ----------
+        raw_documents : list
+            A list of strings.
+
+        Returns
+        -------
+        self
+        """
         self.fit_transform(raw_documents)
         return self
 
     def fit_transform(self, raw_documents, y=None):
+        """Learn the vocabulary dictionary and return term-document matrix.
+
+        This is equivalent to fit followed by transform, but more efficiently
+        implemented.
+
+        Parameters
+        ----------
+        raw_documents : list
+            A list of strings.
+
+        Returns
+        -------
+        X : array, [n_samples, n_features]
+            Document-term matrix.
+        """
         vocab, X = self._count_vocab(raw_documents)
         X, vocab = self._limit_features(X, vocab)
         X = self._sort_features(X, vocab)
@@ -73,14 +162,53 @@ class FastCountVectorizer:
         return X
 
     def transform(self, raw_documents):
+        """Transform documents to document-term matrix.
+
+        Extract token counts out of raw text documents using the vocabulary
+        fitted with fit or the one provided to the constructor.
+
+        Parameters
+        ----------
+        raw_documents : list
+            A list of strings.
+
+        Returns
+        -------
+        X : sparse matrix, [n_samples, n_features]
+            Document-term matrix.
+        """
         _, X = self._count_fixed_vocab(raw_documents, self.vocabulary_)
         return X
 
     def get_feature_names(self):
+        """Array mapping from feature integer indices to feature name.
+
+        Returns
+        -------
+        feature_names : list
+            A list of feature names.
+        """
         return [
             self._to_string(t)
             for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))
         ]
+
+    def _validate_params(self):
+        if self.input != "content":
+            raise ValueError('only input="content" is currently supported')
+        if self.analyzer != "char":
+            raise ValueError('only analyzer="char" is currently supported')
+        min_n, max_m = self.ngram_range
+        if min_n > max_m:
+            raise ValueError(
+                "Invalid value for ngram_range=%s "
+                "lower boundary larger than the upper boundary." % str(self.ngram_range)
+            )
+        if min_n <= 0:
+            raise ValueError(
+                "Invalid value for ngram_range=%s "
+                "minimum ngram size must be equal or greater than 1."
+            )
 
     def _count_vocab(self, docs):
         vocab = defaultdict()
