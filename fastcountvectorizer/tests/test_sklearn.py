@@ -614,7 +614,6 @@ def test_count_vectorizer_max_features():
     assert "the" == features_None[np.argmax(counts_None)]
 
 
-@pytest.mark.skip(reason="unsupported")
 def test_vectorizer_max_df():
     test_data = ["abc", "dea", "eat"]
     vect = CountVectorizer(analyzer="char", max_df=1.0)
@@ -638,7 +637,6 @@ def test_vectorizer_max_df():
     assert len(vect.stop_words_) == 2
 
 
-@pytest.mark.skip(reason="unsupported")
 def test_vectorizer_min_df():
     test_data = ["abc", "dea", "eat"]
     vect = CountVectorizer(analyzer="char", min_df=1)

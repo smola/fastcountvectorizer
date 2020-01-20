@@ -105,6 +105,12 @@ class FastCountVectorizer(BaseEstimator):
     ----------
     vocabulary_ : dict
         A mapping of terms to feature indices.
+
+    stop_words_ : set
+        Terms that were ignored because they either:
+
+          - occurred in too many documents (`max_df`)
+          - occurred in too few documents (`min_df`)
     """
 
     def __init__(
@@ -160,9 +166,10 @@ class FastCountVectorizer(BaseEstimator):
         self._validate_params()
         self._validate_raw_documents(raw_documents)
         vocab, X = self._count_vocab(raw_documents)
-        X, vocab = self._limit_features(X, vocab)
+        X, vocab, stop_words = self._limit_features(X, vocab)
         X = self._sort_features(X, vocab)
         self.vocabulary_ = vocab
+        self.stop_words_ = stop_words
         return X
 
     def transform(self, raw_documents):
@@ -337,7 +344,7 @@ class FastCountVectorizer(BaseEstimator):
         ) or ((isinstance(min_df, numbers.Integral) and max_df > 0) or max_df < 1.0)
 
         if not needs_limit:
-            return X, vocabulary
+            return X, vocabulary, set()
 
         n_doc = X.shape[0]
         high = max_df if isinstance(max_df, numbers.Integral) else max_df * n_doc
@@ -354,6 +361,10 @@ class FastCountVectorizer(BaseEstimator):
             mask &= dfs >= low
 
         new_indices = np.cumsum(mask) - 1  # maps old indices to new
+        removed_terms = set()
+        for term, old_index in vocabulary.items():
+            if not mask[old_index]:
+                removed_terms.add(term)
         vocabulary = {t: new_indices[i] for t, i in vocabulary.items() if mask[i]}
         kept_indices = np.where(mask)[0]
         if len(kept_indices) == 0:
@@ -361,7 +372,7 @@ class FastCountVectorizer(BaseEstimator):
                 "After pruning, no terms remain. Try a lower"
                 " min_df or a higher max_df."
             )
-        return X[:, kept_indices], vocabulary
+        return X[:, kept_indices], vocabulary, removed_terms
 
     def _document_frequency(self, X):
         """Count the number of non-zero values for each feature in sparse X."""
