@@ -14,24 +14,24 @@ def check_cv(cv, input, output, vocab):
     assert_array_almost_equal(cv.transform(input).todense(), output.todense())
 
 
-def test_fastcountvectorizer_init_params():
-    FastCountVectorizer()
+def test_fastcountvectorizer_validate_params():
+    FastCountVectorizer().fit(["foo"])
 
     FastCountVectorizer(input="content")
     with pytest.raises(ValueError):
-        FastCountVectorizer(input="file")
+        FastCountVectorizer(input="file").fit(["foo"])
     with pytest.raises(ValueError):
-        FastCountVectorizer(input="filename")
+        FastCountVectorizer(input="filename").fit(["foo"])
     with pytest.raises(ValueError):
-        FastCountVectorizer(input="unsupported")
+        FastCountVectorizer(input="unsupported").fit(["foo"])
 
-    FastCountVectorizer(analyzer="char")
+    FastCountVectorizer(analyzer="char").fit(["foo"])
     with pytest.raises(ValueError):
-        FastCountVectorizer(analyzer="word")
+        FastCountVectorizer(analyzer="word").fit(["foo"])
     with pytest.raises(ValueError):
-        FastCountVectorizer(analyzer="char_wb")
+        FastCountVectorizer(analyzer="char_wb").fit(["foo"])
     with pytest.raises(ValueError):
-        FastCountVectorizer(input="unsupported")
+        FastCountVectorizer(input="unsupported").fit(["foo"])
 
 
 def test_fastcountvectorizer_return_dtype():
