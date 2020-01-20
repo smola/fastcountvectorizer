@@ -126,3 +126,20 @@ jobs:
         # Also note it needs to be set here at build time, not
         # at config time with CMAKE_BUILD_TYPE: https://stackoverflow.com/a/20423820
       - run: cmake --build . --target run-tests --config Release
+  check-docs:
+    name: check docs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v1
+        with:
+          python-version: '3.8.x'
+          architecture: 'x64'
+      - run: pip install -rdocs/requirements.txt
+      - run: pip install numpy
+      - run: pip install .
+      - run: |
+          cd docs
+          make html
