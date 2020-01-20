@@ -154,40 +154,6 @@ class CharNgramCounter {
     }
   }
 
-  int process_all(PyObject* obj) {
-    const size_t n_docs = PySequence_Length(obj);
-    PyObject* err;
-    PyObject* it;
-    PyObject* el;
-
-    indptr->reserve(n_docs);
-
-    it = PySeqIter_New(obj);
-    if (it == NULL) {
-      return -1;
-    }
-
-    while ((el = PyIter_Next(it)) != NULL) {
-      if (!PyUnicode_Check(el)) {
-        Py_DECREF(el);
-        Py_DECREF(it);
-        PyErr_SetString(PyExc_TypeError, "all documents must be strings");
-        return -1;
-      }
-
-      process_one((PyUnicodeObject*)el);
-
-      Py_DECREF(el);
-    }
-    Py_DECREF(it);
-    if ((err = PyErr_Occurred()) != NULL) {
-      Py_DECREF(err);
-      return -1;
-    }
-
-    return 0;
-  }
-
   void process_one(PyUnicodeObject* obj) {
     const char* data = (char*)PyUnicode_1BYTE_DATA(obj);
     const size_t len = PyUnicode_GET_LENGTH(obj);
@@ -295,35 +261,62 @@ class CharNgramCounter {
   }
 };
 
-// void count_ngrams(list docs, object vocab_dict_)
-static PyObject* count_ngrams(PyObject* self, PyObject* args, PyObject* kwds) {
-  PyObject* vocab;
-  PyObject* docs;
-  Py_ssize_t n;
-  static const char* kwlist[] = {"n", "docs", "vocab", NULL};
-  if (!PyArg_ParseTupleAndKeywords(
-          args, kwds, "nOO", const_cast<char**>(kwlist), &n, &docs, &vocab)) {
-    return NULL;
-  }
+typedef struct {
+  PyObject_HEAD PyObject* vocab;
+  CharNgramCounter* counter;
+} CharNgramCounterObject;
 
-  if (!PySequence_Check(docs)) {
-    PyErr_SetString(PyExc_TypeError, "second argument must be a sequence");
-    return NULL;
-  }
+static int CharNgramCounter_init(CharNgramCounterObject* self, PyObject* args,
+                                 PyObject* kwds) {
+  PyObject* vocab;
+  Py_ssize_t n;
+  static const char* kwlist[] = {"n", "vocab", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nO", const_cast<char**>(kwlist),
+                                   &n, &vocab))
+    return -1;
 
   if (!PyDict_Check(vocab)) {
-    PyErr_SetString(PyExc_TypeError, "third argument must be a dict");
+    PyErr_SetString(PyExc_TypeError, "vocab must be a dict");
+    return -1;
+  }
+
+  Py_INCREF(vocab);
+  self->vocab = vocab;
+  self->counter = new CharNgramCounter(n);
+  return 0;
+}
+
+static void CharNgramCounter_dealloc(CharNgramCounterObject* self) {
+  Py_XDECREF(self->vocab);
+  delete self->counter;
+  self->counter = NULL;
+  Py_TYPE(self)->tp_free((PyObject*)self);
+}
+
+static PyObject* CharNgramCounter_process(CharNgramCounterObject* self,
+                                          PyObject* args, PyObject* kwds) {
+  PyObject* doc;
+  static const char* kwlist[] = {"doc", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "O", const_cast<char**>(kwlist),
+                                   &doc)) {
     return NULL;
   }
 
-  auto counter = CharNgramCounter(n);
-  if (counter.process_all(docs) != 0) {
+  if (!PyUnicode_Check(doc)) {
+    PyErr_SetString(PyExc_TypeError, "all documents must be strings");
     return NULL;
   }
 
-  PyObject* values = counter.get_values();
-  PyObject* indices = counter.get_indices();
-  PyObject* indptr = counter.get_indptr();
+  self->counter->process_one((PyUnicodeObject*)doc);
+
+  Py_RETURN_NONE;
+}
+
+static PyObject* CharNgramCounter_get_result(CharNgramCounterObject* self,
+                                             PyObject* Py_UNUSED(ignored)) {
+  PyObject* values = self->counter->get_values();
+  PyObject* indices = self->counter->get_indices();
+  PyObject* indptr = self->counter->get_indptr();
   PyObject* result = PyTuple_Pack(3, values, indices, indptr);
   if (result == NULL) {
     Py_DECREF(values);
@@ -332,7 +325,7 @@ static PyObject* count_ngrams(PyObject* self, PyObject* args, PyObject* kwds) {
     return NULL;
   }
 
-  if (counter.copy_vocab(vocab) != 0) {
+  if (self->counter->copy_vocab(self->vocab) != 0) {
     Py_DECREF(values);
     Py_DECREF(indices);
     Py_DECREF(indptr);
@@ -345,20 +338,50 @@ static PyObject* count_ngrams(PyObject* self, PyObject* args, PyObject* kwds) {
   return result;
 }
 
-static PyMethodDef methods[] = {{"_count_ngrams", (PyCFunction)count_ngrams,
-                                 METH_VARARGS | METH_KEYWORDS, NULL},
-                                {NULL, NULL, 0, NULL}};
+static PyMethodDef CharNgramCounter_methods[] = {
+    {"process", (PyCFunction)CharNgramCounter_process,
+     METH_VARARGS | METH_KEYWORDS, NULL},
+    {"get_result", (PyCFunction)CharNgramCounter_get_result, METH_NOARGS, NULL},
+    {NULL} /* Sentinel */
+};
+
+static PyTypeObject CharNgramCounterType = {PyVarObject_HEAD_INIT(NULL, 0)};
+
+static void CharNgramCounterType_init_struct() {
+  CharNgramCounterType.tp_name = "fastcountvectorizer._ext._CharNgramCounter";
+  CharNgramCounterType.tp_basicsize = sizeof(CharNgramCounterObject);
+  CharNgramCounterType.tp_itemsize = 0;
+  CharNgramCounterType.tp_dealloc = (destructor)CharNgramCounter_dealloc;
+  CharNgramCounterType.tp_flags = Py_TPFLAGS_DEFAULT;
+  CharNgramCounterType.tp_doc = NULL;
+  CharNgramCounterType.tp_new = PyType_GenericNew;
+  CharNgramCounterType.tp_init = (initproc)CharNgramCounter_init;
+  CharNgramCounterType.tp_methods = CharNgramCounter_methods;
+}
 
 static PyModuleDef _extmodule = {
-    PyModuleDef_HEAD_INIT, .m_name = "fastcountvectorizer._ext",
-    .m_doc = NULL,         .m_size = -1,
-    .m_methods = methods,
+    PyModuleDef_HEAD_INIT,
+    .m_name = "fastcountvectorizer._ext",
+    .m_doc = NULL,
+    .m_size = -1,
 };
 
 PyMODINIT_FUNC PyInit__ext(void) {
+  CharNgramCounterType_init_struct();
+  if (PyType_Ready(&CharNgramCounterType) < 0) return NULL;
+
   PyObject* m = PyModule_Create(&_extmodule);
   if (m == NULL) return NULL;
 
   import_array();
+
+  Py_INCREF(&CharNgramCounterType);
+  if (PyModule_AddObject(m, "_CharNgramCounter",
+                         (PyObject*)&CharNgramCounterType) < 0) {
+    Py_DECREF(&CharNgramCounterType);
+    Py_DECREF(m);
+    return NULL;
+  }
+
   return m;
 }

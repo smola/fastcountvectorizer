@@ -51,7 +51,7 @@ from operator import itemgetter
 import scipy.sparse as sp
 from sklearn.utils import _IS_32BIT
 from sklearn.base import BaseEstimator
-from ._ext import _count_ngrams
+from ._ext import _CharNgramCounter
 
 
 class FastCountVectorizer(BaseEstimator):
@@ -308,7 +308,11 @@ class FastCountVectorizer(BaseEstimator):
         return s
 
     def _count_vocab_from_docs(self, n, docs, vocab):
-        values, indices, indptr = _count_ngrams(n, docs, vocab)
+        counter = _CharNgramCounter(n, vocab)
+        for doc in docs:
+            counter.process(doc)
+        values, indices, indptr = counter.get_result()
+        del counter
 
         if indptr[-1] > np.iinfo(np.int32).max:  # = 2**31 - 1
             if _IS_32BIT:
