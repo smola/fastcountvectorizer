@@ -1,4 +1,4 @@
-# FastCountVectorizer
+# FastCountVectorizer ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/smola/fastcountvectorizer/fastcountvectorizer-ci/master)
 
 FastCountVectorizer is a faster alternative to [scikit-learn](https://scikit-learn.org/)'s [CountVectorizer](https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html).
 
