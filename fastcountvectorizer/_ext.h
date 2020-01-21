@@ -36,6 +36,9 @@ class FullLightString {
   void own();
   void free();
   PyObject* toPyObject() const;
+  const char* data() const { return _data; }
+  size_t byte_len() const { return _byte_len; }
+  unsigned char kind() const { return _kind; }
 
   bool operator==(const FullLightString& other) const;
 
