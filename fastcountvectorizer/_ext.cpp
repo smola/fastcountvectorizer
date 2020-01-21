@@ -12,266 +12,198 @@
 #include <numpy/arrayobject.h>
 #include <numpy/numpyconfig.h>
 
+#include "_ext.h"
 #include "buzhash.h"
 
-struct FullLightStringHash; /* Forward */
+char* FullLightString::copy_data() const {
+  char* new_data = new char[_byte_len];
+  memcpy(new_data, _data, _byte_len);
+  return new_data;
+}
 
-class FullLightString {
- private:
-  char* _data;
-  size_t _byte_len;
-  size_t _hash;
-  unsigned char _kind;
-  bool _owned;
-
-  char* copy_data() const {
-    char* new_data = new char[_byte_len];
-    memcpy(new_data, _data, _byte_len);
-    return new_data;
+void FullLightString::own() {
+  if (!_owned) {
+    _data = copy_data();
+    _owned = true;
   }
+}
 
- public:
-  FullLightString(char* data, const size_t byte_len, const unsigned char kind,
-                  const size_t hash)
-      : _data(data),
-        _byte_len(byte_len),
-        _hash(hash),
-        _kind(kind),
-        _owned(false) {}
-
-  FullLightString() : FullLightString(NULL, 0, PyUnicode_1BYTE_KIND, 0) {}
-
-  void own() {
-    if (!_owned) {
-      _data = copy_data();
-      _owned = true;
-    }
+void FullLightString::free() {
+  assert(!_owned);
+  if (_owned) {
+    delete _data;
   }
+}
 
-  void free() {
-    assert(!_owned);
-    if (_owned) {
-      delete _data;
-    }
+PyObject* FullLightString::toPyObject() const {
+  return PyUnicode_FromKindAndData(_kind, _data, _byte_len / _kind);
+}
+
+bool FullLightString::operator==(const FullLightString& other) const {
+  if (_byte_len != other._byte_len) {
+    return false;
   }
+  return memcmp(_data, other._data, _byte_len) == 0;
+}
 
-  PyObject* toPyObject() const {
-    return PyUnicode_FromKindAndData(_kind, _data, _byte_len / _kind);
+size_t FullLightStringHash::operator()(const FullLightString& k) const
+    noexcept {
+  return k._hash;
+}
+
+FullLightString LightString::to_full(const size_t byte_len,
+                                     const unsigned char kind) const {
+  PyObject* obj;
+  FullLightString str;
+  if (kind == PyUnicode_1BYTE_KIND) {
+    return FullLightString(_data, byte_len, kind, _hash);
   }
-
-  friend FullLightStringHash;
-
-  bool operator==(const FullLightString& other) const {
-    if (_byte_len != other._byte_len) {
-      return false;
-    }
-    return memcmp(_data, other._data, _byte_len) == 0;
-  }
-};
-
-struct FullLightStringHash {
-  std::size_t operator()(const FullLightString& k) const noexcept {
-    return k._hash;
-  }
-};
-
-struct LightStringHash;  /* Forward */
-struct LightStringEqual; /* Forward */
-
-class LightString {
- private:
-  char* _data;
-  size_t _hash;
-
- public:
-  LightString(char* data, const size_t hash) : _data(data), _hash(hash) {}
-
-  LightString() : LightString(NULL, 0) {}
-
-  FullLightString to_full(const size_t byte_len,
-                          const unsigned char kind) const {
-    PyObject* obj;
-    FullLightString str;
-    if (kind == PyUnicode_1BYTE_KIND) {
-      return FullLightString(_data, byte_len, kind, _hash);
-    }
-    obj = PyUnicode_FromKindAndData(kind, _data, byte_len / kind);
-    if (PyUnicode_KIND(obj) == kind) {
-      Py_DECREF(obj);
-      return FullLightString(_data, byte_len, kind, _hash);
-    }
-    str = FullLightString((char*)PyUnicode_1BYTE_DATA(obj),
-                          PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj),
-                          (unsigned char)PyUnicode_KIND(obj),
-                          buzhash::Buzhash<std::size_t>::hash_once(
-                              (char*)PyUnicode_1BYTE_DATA(obj),
-                              PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj)));
-    str.own();
+  obj = PyUnicode_FromKindAndData(kind, _data, byte_len / kind);
+  if (PyUnicode_KIND(obj) == kind) {
     Py_DECREF(obj);
-    return str;
+    return FullLightString(_data, byte_len, kind, _hash);
   }
+  str = FullLightString((char*)PyUnicode_1BYTE_DATA(obj),
+                        PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj),
+                        (unsigned char)PyUnicode_KIND(obj),
+                        buzhash::Buzhash<std::size_t>::hash_once(
+                            (char*)PyUnicode_1BYTE_DATA(obj),
+                            PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj)));
+  str.own();
+  Py_DECREF(obj);
+  return str;
+}
 
-  friend LightStringHash;
-  friend LightStringEqual;
-};
+size_t LightStringHash::operator()(const LightString& k) const noexcept {
+  return k._hash;
+}
 
-struct LightStringHash {
-  std::size_t operator()(const LightString& k) const noexcept {
-    return k._hash;
-  }
-};
+bool LightStringEqual::operator()(const LightString& lhs,
+                                  const LightString& rhs) const {
+  return memcmp(lhs._data, rhs._data, _len) == 0;
+}
 
-class LightStringEqual {
- private:
-  size_t _len;
+void CharNgramCounter::prepare_vocab() {}
 
- public:
-  LightStringEqual() : _len(0) {}
+PyObject* CharNgramCounter::_vector_to_numpy(const std::vector<size_t>* v) {
+  PyObject* a;
+  const size_t size = v->size();
+  npy_intp shape[1];
+  shape[0] = (npy_intp)size;
+  a = PyArray_SimpleNew(1, shape, NPY_UINT64);
+  memcpy(PyArray_DATA((PyArrayObject*)a), v->data(), size * sizeof(size_t));
+  return a;
+}
 
-  LightStringEqual(size_t len) : _len(len) {}
+CharNgramCounter::CharNgramCounter(const int n) : n(n) {
+  prepare_vocab();
+  result_array_len = 0;
+  values = new std::vector<size_t>();
+  indices = new std::vector<size_t>();
+  indptr = new std::vector<size_t>();
+  indptr->push_back(0);
+}
 
-  bool operator()(const LightString& lhs, const LightString& rhs) const {
-    return memcmp(lhs._data, rhs._data, _len) == 0;
-  }
-};
+CharNgramCounter::~CharNgramCounter() {
+  delete values;
+  delete indices;
+  delete indptr;
+}
 
-typedef std::unordered_map<FullLightString, int, FullLightStringHash> vocab_map;
-typedef std::unordered_map<LightString, int, LightStringHash, LightStringEqual>
-    counter_map;
+void CharNgramCounter::process_one(PyUnicodeObject* obj) {
+  const char* data = (char*)PyUnicode_1BYTE_DATA(obj);
+  const size_t len = PyUnicode_GET_LENGTH(obj);
+  const auto kind = (unsigned char)PyUnicode_KIND(obj);
+  const size_t byte_len = len * kind;
 
-class CharNgramCounter {
- private:
-  vocab_map vocab;
-  const int n;
+  char* data_ptr = (char*)data;
+  LightString str;
+  size_t cur_byte_idx = 0;
 
-  size_t result_array_len;
-  std::vector<size_t>* values;
-  std::vector<size_t>* indices;
-  std::vector<size_t>* indptr;
+  counter_map counters(10, LightStringHash(), LightStringEqual(n * kind));
+  counter_map::iterator cit;
+  vocab_map::iterator vit;
 
-  void prepare_vocab() {}
+  while (cur_byte_idx <= byte_len - n * kind) {
+    // read ngram
+    str = LightString(data_ptr,
+                      buzhash::Buzhash<size_t>::hash_once(data_ptr, n * kind));
+    cur_byte_idx += kind;
+    data_ptr += kind;
 
-  static PyObject* _vector_to_numpy(const std::vector<size_t>* v) {
-    PyObject* a;
-    const size_t size = v->size();
-    npy_intp shape[1];
-    shape[0] = (npy_intp)size;
-    a = PyArray_SimpleNew(1, shape, NPY_UINT64);
-    memcpy(PyArray_DATA((PyArrayObject*)a), v->data(), size * sizeof(size_t));
-    return a;
-  }
-
- public:
-  CharNgramCounter(const int n) : n(n) {
-    prepare_vocab();
-    result_array_len = 0;
-    values = new std::vector<size_t>();
-    indices = new std::vector<size_t>();
-    indptr = new std::vector<size_t>();
-    indptr->push_back(0);
-  }
-
-  ~CharNgramCounter() {
-    delete values;
-    delete indices;
-    delete indptr;
-  }
-
-  void process_one(PyUnicodeObject* obj) {
-    const char* data = (char*)PyUnicode_1BYTE_DATA(obj);
-    const size_t len = PyUnicode_GET_LENGTH(obj);
-    const auto kind = (unsigned char)PyUnicode_KIND(obj);
-    const size_t byte_len = len * kind;
-
-    char* data_ptr = (char*)data;
-    LightString str;
-    size_t cur_byte_idx = 0;
-
-    counter_map counters(10, LightStringHash(), LightStringEqual(n * kind));
-    counter_map::iterator cit;
-    vocab_map::iterator vit;
-
-    while (cur_byte_idx <= byte_len - n * kind) {
-      // read ngram
-      str = LightString(
-          data_ptr, buzhash::Buzhash<size_t>::hash_once(data_ptr, n * kind));
-      cur_byte_idx += kind;
-      data_ptr += kind;
-
-      // increment counters
-      cit = counters.find(str);
-      if (cit == counters.end()) {
-        counters[str] = 1;
-      } else {
-        cit->second++;
-      }
-    }
-
-    result_array_len += counters.size();
-    values->reserve(counters.size());
-    indices->reserve(counters.size());
-    indptr->push_back(result_array_len);
-
-    for (cit = counters.begin(); cit != counters.end(); cit++) {
-      FullLightString full_str = cit->first.to_full(n * kind, kind);
-      vit = vocab.find(full_str);
-      if (vit == vocab.end()) {
-        const size_t term_idx = vocab.size();
-        full_str.own();
-        vocab[full_str] = term_idx;
-        indices->push_back(term_idx);
-      } else {
-        full_str.free();
-        const size_t term_idx = vit->second;
-        indices->push_back(term_idx);
-      }
-      values->push_back(cit->second);
+    // increment counters
+    cit = counters.find(str);
+    if (cit == counters.end()) {
+      counters[str] = 1;
+    } else {
+      cit->second++;
     }
   }
 
-  PyObject* get_values() {
-    PyObject* v = _vector_to_numpy(values);
-    delete values;
-    values = NULL;
-    return v;
-  }
+  result_array_len += counters.size();
+  values->reserve(counters.size());
+  indices->reserve(counters.size());
+  indptr->push_back(result_array_len);
 
-  PyObject* get_indices() {
-    PyObject* v = _vector_to_numpy(indices);
-    delete indices;
-    indices = NULL;
-    return v;
-  }
-
-  PyObject* get_indptr() {
-    PyObject* v = _vector_to_numpy(indptr);
-    delete indptr;
-    indptr = NULL;
-    return v;
-  }
-
-  int copy_vocab(PyObject* dest_vocab) {
-    PyObject* key;
-    PyObject* value;
-    vocab_map::iterator it = vocab.begin();
-    int error = 0;
-    while (it != vocab.end()) {
-      if (error == 0) {
-        key = it->first.toPyObject();
-        value = PyLong_FromSize_t(it->second);
-        if (PyDict_SetItem(dest_vocab, key, value) != 0) {
-          error = -1;
-        }
-        Py_DECREF(key);
-        Py_DECREF(value);
-      }
-      FullLightString str = it->first;
-      it = vocab.erase(it);
-      str.free();
+  for (cit = counters.begin(); cit != counters.end(); cit++) {
+    FullLightString full_str = cit->first.to_full(n * kind, kind);
+    vit = vocab.find(full_str);
+    if (vit == vocab.end()) {
+      const size_t term_idx = vocab.size();
+      full_str.own();
+      vocab[full_str] = term_idx;
+      indices->push_back(term_idx);
+    } else {
+      full_str.free();
+      const size_t term_idx = vit->second;
+      indices->push_back(term_idx);
     }
-    return 0;
+    values->push_back(cit->second);
   }
-};
+}
+
+PyObject* CharNgramCounter::get_values() {
+  PyObject* v = _vector_to_numpy(values);
+  delete values;
+  values = NULL;
+  return v;
+}
+
+PyObject* CharNgramCounter::get_indices() {
+  PyObject* v = _vector_to_numpy(indices);
+  delete indices;
+  indices = NULL;
+  return v;
+}
+
+PyObject* CharNgramCounter::get_indptr() {
+  PyObject* v = _vector_to_numpy(indptr);
+  delete indptr;
+  indptr = NULL;
+  return v;
+}
+
+int CharNgramCounter::copy_vocab(PyObject* dest_vocab) {
+  PyObject* key;
+  PyObject* value;
+  vocab_map::iterator it = vocab.begin();
+  int error = 0;
+  while (it != vocab.end()) {
+    if (error == 0) {
+      key = it->first.toPyObject();
+      value = PyLong_FromSize_t(it->second);
+      if (PyDict_SetItem(dest_vocab, key, value) != 0) {
+        error = -1;
+      }
+      Py_DECREF(key);
+      Py_DECREF(value);
+    }
+    FullLightString str = it->first;
+    it = vocab.erase(it);
+    str.free();
+  }
+  return 0;
+}
 
 typedef struct {
   PyObject_HEAD PyObject* vocab;
