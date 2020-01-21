@@ -13,74 +13,40 @@
 #include <numpy/numpyconfig.h>
 
 #include "_ext.h"
-#include "buzhash.h"
 
-char* FullLightString::copy_data() const {
-  char* new_data = new char[_byte_len];
-  memcpy(new_data, _data, _byte_len);
-  return new_data;
-}
-
-void FullLightString::own() {
-  if (!_owned) {
-    _data = copy_data();
-    _owned = true;
+string_with_kind string_with_kind::compact() const {
+  if (_kind == 1) {
+    return *this;
   }
-}
-
-void FullLightString::free() {
-  assert(!_owned);
-  if (_owned) {
-    delete _data;
+  PyObject* obj = PyUnicode_FromKindAndData(_kind, data(), size() / _kind);
+  const unsigned char new_kind = PyUnicode_KIND(obj);
+  if (new_kind == _kind) {
+    Py_DECREF(obj);
+    return *this;
   }
+  const size_t new_byte_len = PyUnicode_GET_LENGTH(obj) * new_kind;
+  string_with_kind new_str = string_with_kind((char*)PyUnicode_1BYTE_DATA(obj),
+                                              new_byte_len, new_kind);
+  Py_DECREF(obj);
+  return new_str;
 }
 
-PyObject* FullLightString::toPyObject() const {
-  return PyUnicode_FromKindAndData(_kind, _data, _byte_len / _kind);
-}
-
-bool FullLightString::operator==(const FullLightString& other) const {
-  if (_byte_len != other._byte_len) {
+bool string_with_kind::operator==(const string_with_kind& other) const {
+  if (size() != other.size()) {
     return false;
   }
-  return memcmp(_data, other._data, _byte_len) == 0;
-}
-
-size_t FullLightStringHash::operator()(const FullLightString& k) const
-    noexcept {
-  return k._hash;
-}
-
-FullLightString LightString::to_full(const size_t byte_len,
-                                     const unsigned char kind) const {
-  PyObject* obj;
-  FullLightString str;
-  if (kind == PyUnicode_1BYTE_KIND) {
-    return FullLightString(_data, byte_len, kind, _hash);
+  if (_kind != other._kind) {
+    return false;
   }
-  obj = PyUnicode_FromKindAndData(kind, _data, byte_len / kind);
-  if (PyUnicode_KIND(obj) == kind) {
-    Py_DECREF(obj);
-    return FullLightString(_data, byte_len, kind, _hash);
-  }
-  str = FullLightString((char*)PyUnicode_1BYTE_DATA(obj),
-                        PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj),
-                        (unsigned char)PyUnicode_KIND(obj),
-                        buzhash::Buzhash<std::size_t>::hash_once(
-                            (char*)PyUnicode_1BYTE_DATA(obj),
-                            PyUnicode_GET_LENGTH(obj) * PyUnicode_KIND(obj)));
-  str.own();
-  Py_DECREF(obj);
-  return str;
+  return memcmp(data(), other.data(), size()) == 0;
 }
 
-size_t LightStringHash::operator()(const LightString& k) const noexcept {
-  return k._hash;
+bool string_with_kind::operator!=(const string_with_kind& other) const {
+  return !operator==(other);
 }
 
-bool LightStringEqual::operator()(const LightString& lhs,
-                                  const LightString& rhs) const {
-  return memcmp(lhs._data, rhs._data, _len) == 0;
+PyObject* to_PyObject(const string_with_kind& str) {
+  return PyUnicode_FromKindAndData(str.kind(), str.data(), str.size());
 }
 
 void CharNgramCounter::prepare_vocab() {}
@@ -117,17 +83,15 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   const size_t byte_len = len * kind;
 
   char* data_ptr = (char*)data;
-  LightString str;
   size_t cur_byte_idx = 0;
 
-  counter_map counters(10, LightStringHash(), LightStringEqual(n * kind));
+  counter_map counters;
   counter_map::iterator cit;
   vocab_map::iterator vit;
 
   while (cur_byte_idx <= byte_len - n * kind) {
     // read ngram
-    str = LightString(data_ptr,
-                      buzhash::Buzhash<size_t>::hash_once(data_ptr, n * kind));
+    string_with_kind str(data_ptr, n, kind);
     cur_byte_idx += kind;
     data_ptr += kind;
 
@@ -146,15 +110,13 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   indptr->push_back(result_array_len);
 
   for (cit = counters.begin(); cit != counters.end(); cit++) {
-    FullLightString full_str = cit->first.to_full(n * kind, kind);
-    vit = vocab.find(full_str);
+    vit = vocab.find(cit->first);
     if (vit == vocab.end()) {
       const size_t term_idx = vocab.size();
-      full_str.own();
-      vocab[full_str] = term_idx;
+      string_with_kind cstr = cit->first.compact();
+      vocab[cstr] = term_idx;
       indices->push_back(term_idx);
     } else {
-      full_str.free();
       const size_t term_idx = vit->second;
       indices->push_back(term_idx);
     }
@@ -186,21 +148,19 @@ PyObject* CharNgramCounter::get_indptr() {
 int CharNgramCounter::copy_vocab(PyObject* dest_vocab) {
   PyObject* key;
   PyObject* value;
-  vocab_map::iterator it = vocab.begin();
+  auto it = vocab.begin();
   int error = 0;
   while (it != vocab.end()) {
     if (error == 0) {
-      key = it->first.toPyObject();
+      key = to_PyObject(it->first);
       value = PyLong_FromSize_t(it->second);
       if (PyDict_SetItem(dest_vocab, key, value) != 0) {
         error = -1;
       }
       Py_DECREF(key);
       Py_DECREF(value);
-    }
-    FullLightString str = it->first;
+    };
     it = vocab.erase(it);
-    str.free();
   }
   return 0;
 }
