@@ -6,7 +6,7 @@ ext_modules = [
     Extension(
         "fastcountvectorizer._ext",
         sources=["fastcountvectorizer/_ext.cpp"],
-        depends=["fastcountvectorizer/buzhash.h"],
+        depends=["fastcountvectorizer/_ext.h" "fastcountvectorizer/buzhash.h"],
         include_dirs=[numpy.get_include()],
         language="c++",
     )
