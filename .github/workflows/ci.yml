@@ -66,3 +66,7 @@ jobs:
           architecture: 'x64'
       - run: pip install tox numpy
       - run: tox
+      - run: sudo snap install cmake --classic
+      - run: /snap/cmake/current/bin/cmake --version
+      - run: /snap/cmake/current/bin/cmake .
+      - run: PATH="/snap/cmake/current/bin:$PATH" make run-tests
