@@ -57,6 +57,12 @@ void index_vector::set_max_value(size_t val) {
   }
 }
 
+void index_vector::set_max_value(const std::vector<size_t>& vals) {
+  for (auto it = vals.begin(); it != vals.end(); it++) {
+    set_max_value(*it);
+  }
+}
+
 void index_vector::reserve(const size_t n) {
   if (use_64) {
     v64->reserve(n);
@@ -74,6 +80,14 @@ void index_vector::push_back(const size_t n) {
   } else {
     assert(n <= NPY_MAX_INT32);
     v32->push_back((npy_int32)n);
+  }
+}
+
+size_t index_vector::size() const {
+  if (use_64) {
+    return v64->size();
+  } else {
+    return v32->size();
   }
 }
 

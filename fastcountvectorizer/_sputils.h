@@ -30,12 +30,16 @@ class index_vector {
   index_vector(bool use_64);
   ~index_vector();
   void set_max_value(size_t val);
+  void set_max_value(const std::vector<size_t>& vals);
   void reserve(size_t n);
   void push_back(size_t n);
+  size_t size() const;
   PyObject* to_numpy() const;
   bool is_64() const { return use_64; }
   std::vector<npy_int32>& data32() { return *v32; }
+  const std::vector<npy_int32>& data32() const { return *v32; }
   std::vector<npy_int64>& data64() { return *v64; }
+  const std::vector<npy_int64>& data64() const { return *v64; }
 };
 
 #endif  // FCV_SPUTILS_H

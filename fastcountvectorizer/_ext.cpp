@@ -2,7 +2,10 @@
 // Authors: Santiago M. Mola <santi@mola.io>
 // License: MIT License
 
+#include <algorithm>
+#include <limits>
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 #define PY_SSIZE_T_CLEAN
@@ -13,6 +16,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL fcv_ARRAY_API
 #include <numpy/arrayobject.h>
 
+#include "_csr.h"
 #include "_ext.h"
 #include "_sputils.h"
 #include "_strings.h"
@@ -49,6 +53,15 @@ int vocab_map::flush_to(PyObject* dest_vocab) {
   return error;
 }
 
+std::vector<std::pair<string_with_kind, size_t>> vocab_map::to_vector() const {
+  std::vector<std::pair<string_with_kind, size_t>> result;
+  result.reserve(_m.size());
+  for (auto it = _m.begin(); it != _m.end(); it++) {
+    result.emplace_back(*it);
+  }
+  return result;
+}
+
 void counter_map::increment_key(const char* k) {
   auto it = find(k);
   if (it == end()) {
@@ -60,9 +73,16 @@ void counter_map::increment_key(const char* k) {
 
 void CharNgramCounter::prepare_vocab() {}
 
-CharNgramCounter::CharNgramCounter(const unsigned int n) : n(n) {
+CharNgramCounter::CharNgramCounter(const unsigned int min_n,
+                                   const unsigned int max_n)
+    : min_n(min_n), max_n(max_n) {
   prepare_vocab();
   result_array_len = 0;
+  if (need_expand_counts()) {
+    prefixes = new std::vector<string_with_kind>();
+  } else {
+    prefixes = nullptr;
+  }
   values = new std::vector<npy_int64>();
   indices = new index_vector();
   indptr = new index_vector();
@@ -70,19 +90,26 @@ CharNgramCounter::CharNgramCounter(const unsigned int n) : n(n) {
 }
 
 CharNgramCounter::~CharNgramCounter() {
+  delete prefixes;
   delete values;
   delete indices;
   delete indptr;
 }
 
 void CharNgramCounter::process_one(PyUnicodeObject* obj) {
+  const unsigned int n = max_n;
   const char* data = (char*)PyUnicode_1BYTE_DATA(obj);
-  const auto len = (size_t)PyUnicode_GET_LENGTH(obj);
+  const auto len = PyUnicode_GET_LENGTH(obj);
   const auto kind = (uint8_t)PyUnicode_KIND(obj);
-  const size_t byte_len = len * kind;
+  const size_t byte_len = (size_t)len * kind;
 
   counter_map counters(kind * n);
   counter_map::iterator cit;
+
+  if (need_expand_counts()) {
+    const unsigned int prefix_len = (len <= max_n) ? (unsigned int)len : max_n;
+    prefixes->push_back(string_with_kind(data, prefix_len * kind, kind));
+  }
 
   for (size_t i = 0; i <= byte_len - n * kind; i += kind) {
     const char* data_ptr = data + i;
@@ -91,9 +118,9 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
 
   result_array_len += counters.size();
   values->reserve(counters.size());
-  indices->set_max_value(vocab.size());
+  indices->set_max_value({vocab.size(), result_array_len});
   indices->reserve(counters.size());
-  indptr->set_max_value(vocab.size());
+  indptr->set_max_value({vocab.size(), result_array_len});
   indptr->push_back(result_array_len);
 
   for (cit = counters.begin(); cit != counters.end(); cit++) {
@@ -102,6 +129,111 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
     indices->push_back(term_idx);
     values->push_back(cit->second);
   }
+}
+
+bool CharNgramCounter::need_expand_counts() const { return min_n < max_n; }
+
+bool vocab_idx_less_than(const std::pair<string_with_kind, size_t>& a,
+                         const std::pair<string_with_kind, size_t>& b) {
+  return a.second < b.second;
+}
+
+void count_expansion_csr_matrix(vocab_map& vocab,
+                                std::vector<npy_intp>& conv_indices,
+                                const unsigned int min_n,
+                                const unsigned int max_n) {
+  // copy vocab (and sort) for iteration concurrent with modification
+  std::vector<std::pair<string_with_kind, size_t>> vocab_copy =
+      vocab.to_vector();
+
+  // sort is required omit storing old term index when computing the conversion
+  // matrix (see below).
+  std::sort(vocab_copy.begin(), vocab_copy.end(), vocab_idx_less_than);
+
+  // compute conversion matrix (_, conv_indices, _) in CSR format.
+  // actual values are omitted, since they are always 1.
+  // indptr is also omitted since it is always in increments of max_n-min_n
+  conv_indices.resize(vocab.size() * (size_t)(max_n - min_n));
+  size_t i_indices = 0;
+  for (auto it = vocab_copy.begin(); it != vocab_copy.end(); it++) {
+    string_with_kind new_term = it->first;
+    for (unsigned int n = max_n - 1; n >= min_n; n--) {
+      new_term = new_term.suffix();
+      const size_t term_idx = vocab[new_term];
+      assert(term_idx >= vocab_copy.size());
+      conv_indices[i_indices++] = (npy_intp)term_idx;
+    }
+  }
+}
+
+void prefixes_add_csr_matrix(vocab_map& vocab,
+                             const std::vector<string_with_kind>& prefixes,
+                             std::vector<npy_intp>& prefixes_indptr,
+                             std::vector<npy_intp>& prefixes_indices,
+                             const unsigned int min_n,
+                             const unsigned int max_n) {
+  prefixes_indices.reserve(prefixes.size() * (max_n - min_n));
+  prefixes_indptr.resize(prefixes.size() + 1);
+  prefixes_indptr[0] = 0;
+  for (unsigned int i = 0; i < prefixes.size(); i++) {
+    const uint8_t kind = prefixes[i].kind();
+    const unsigned int prefix_len = (unsigned int)prefixes[i].size() / kind;
+    const unsigned int new_max_n =
+        (prefix_len <= max_n - 1) ? prefix_len : max_n - 1;
+    for (unsigned int n = new_max_n; n >= min_n; n--) {
+      for (unsigned int start = 0; start < max_n - n; start++) {
+        string_with_kind new_term = string_with_kind::compact(
+            prefixes[i].data() + (start * kind), (n * kind), kind);
+        prefixes_indices.push_back((npy_intp)vocab[new_term]);
+      }
+    }
+    prefixes_indptr[i + 1] = (npy_intp)prefixes_indices.size();
+  }
+}
+
+void CharNgramCounter::expand_counts() {
+  if (!need_expand_counts()) {
+    return;
+  }
+
+  if (vocab.size() > std::numeric_limits<npy_intp>::max()) {
+    throw std::overflow_error("too many vocabulary terms");
+  }
+
+  // compute conversion matrix (_, conv_indices, _) in CSR format.
+  // actual values are omitted, since they are always 1.
+  // indptr is also omitted since it is always in increments of max_n-min_n
+  std::vector<npy_intp> conv_indices;
+  count_expansion_csr_matrix(vocab, conv_indices, min_n, max_n);
+
+  // compute CSR matrix for prefixes, data is always 1
+  std::vector<npy_intp> prefixes_indices;
+  std::vector<npy_intp> prefixes_indptr;
+  prefixes_add_csr_matrix(vocab, *prefixes, prefixes_indptr, prefixes_indices,
+                          min_n, max_n);
+  delete prefixes;
+  prefixes = nullptr;
+
+  // final matrix shape
+  const size_t n_row = indptr->size() - 1;
+  const size_t n_col = vocab.size();
+  const size_t nnz_per_B_row = (size_t)(max_n - min_n);
+
+  auto new_indptr = new index_vector();
+  auto new_indices = new index_vector();
+  auto new_values = new std::vector<npy_int64>();
+
+  csr_matmat_add_Bx1_diagprefix_fixed_nnz(
+      n_row, n_col, *indptr, *indices, *values, conv_indices, nnz_per_B_row,
+      prefixes_indptr, prefixes_indices, *new_indptr, *new_indices,
+      *new_values);
+
+  std::swap(indptr, new_indptr);
+  delete new_indptr;
+  std::swap(indices, new_indices);
+  delete new_indices;
+  std::swap(values, new_values);
+  delete new_values;
 }
 
 PyObject* CharNgramCounter::get_values() {
@@ -137,10 +269,11 @@ typedef struct {
 static int CharNgramCounter_init(CharNgramCounterObject* self, PyObject* args,
                                  PyObject* kwds) {
   PyObject* vocab;
-  Py_ssize_t n;
-  static const char* kwlist[] = {"n", "vocab", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nO", const_cast<char**>(kwlist),
-                                   &n, &vocab)) {
+  Py_ssize_t min_n, max_n;
+  static const char* kwlist[] = {"min_n", "max_n", "vocab", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nnO",
+                                   const_cast<char**>(kwlist), &min_n, &max_n,
+                                   &vocab)) {
     return -1;
   }
 
@@ -149,14 +282,21 @@ static int CharNgramCounter_init(CharNgramCounterObject* self, PyObject* args,
     return -1;
   }
 
-  if (n <= 0) {
-    PyErr_SetString(PyExc_ValueError, "n must be greater than 0");
+  if (min_n <= 0) {
+    PyErr_SetString(PyExc_ValueError, "min_n must be greater than 0");
+    return -1;
+  }
+
+  if (max_n < min_n) {
+    PyErr_SetString(PyExc_ValueError,
+                    "max_n must be equal or greather than min_n");
     return -1;
   }
 
   Py_INCREF(vocab);
   self->vocab = vocab;
-  self->counter = new CharNgramCounter((unsigned int)n);
+  self->counter =
+      new CharNgramCounter((unsigned int)min_n, (unsigned int)max_n);
   return 0;
 }
 
@@ -183,6 +323,17 @@ static PyObject* CharNgramCounter_process(CharNgramCounterObject* self,
 
   self->counter->process_one((PyUnicodeObject*)doc);
 
+  Py_RETURN_NONE;
+}
+
+static PyObject* CharNgramCounter_postprocess(CharNgramCounterObject* self,
+                                              PyObject* Py_UNUSED(ignored)) {
+  try {
+    self->counter->expand_counts();
+  } catch (std::exception& e) {
+    PyErr_SetString(PyExc_SystemError, e.what());
+    return NULL;
+  }
   Py_RETURN_NONE;
 }
 
@@ -215,6 +366,8 @@ static PyObject* CharNgramCounter_get_result(CharNgramCounterObject* self,
 static PyMethodDef CharNgramCounter_methods[] = {
     {"process", (PyCFunction)CharNgramCounter_process,
      METH_VARARGS | METH_KEYWORDS, NULL},
+    {"postprocess", (PyCFunction)CharNgramCounter_postprocess, METH_NOARGS,
+     NULL},
     {"get_result", (PyCFunction)CharNgramCounter_get_result, METH_NOARGS, NULL},
     {NULL, NULL, 0, NULL} /* Sentinel */
 };

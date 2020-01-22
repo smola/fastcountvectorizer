@@ -23,6 +23,7 @@ class string_with_kind : public std::string {
   bool operator==(const string_with_kind& other) const;
   bool operator!=(const string_with_kind& other) const;
   PyObject* toPyObject() const;
+  string_with_kind suffix() const;
 };
 
 namespace std {
