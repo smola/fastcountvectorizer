@@ -19,18 +19,19 @@ include_directories(${Python3_NumPy_INCLUDE_DIRS})
 link_directories(AFTER ${Python3_LIBRARY_DIRS})
 link_libraries(${Python3_LIBRARIES})
 
-
 include_directories(${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer)
 include_directories(SYSTEM ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/thirdparty)
 include_directories(SYSTEM ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/tests/thirdparty)
 
 add_executable(_ext_test
         ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_strings.cpp
+        ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_sputils.cpp
         ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_ext.cpp
         pyutils.cpp
         test__ext.cpp
         test__ext_impl.cpp
-        test__strings_impl.cpp)
+        test__strings_impl.cpp
+        test__sputils_impl.cpp)
 
 # set warning levels
 # see https://foonathan.net/2018/10/cmake-warnings/
