@@ -8,84 +8,34 @@
 
 #include "Python.h"
 
-struct FullLightStringHash; /* Forward */
-struct LightStringHash;     /* Forward */
-struct LightStringEqual;    /* Forward */
-
-class FullLightString {
+class string_with_kind : public std::string {
  private:
-  char* _data;
-  size_t _byte_len;
-  size_t _hash;
   unsigned char _kind;
-  bool _owned;
-
-  char* copy_data() const;
 
  public:
-  FullLightString(char* data, const size_t byte_len, const unsigned char kind,
-                  const size_t hash)
-      : _data(data),
-        _byte_len(byte_len),
-        _hash(hash),
-        _kind(kind),
-        _owned(false) {}
-
-  FullLightString() : FullLightString(NULL, 0, PyUnicode_1BYTE_KIND, 0) {}
-
-  void own();
-  void free();
-  PyObject* toPyObject() const;
-  const char* data() const { return _data; }
-  size_t byte_len() const { return _byte_len; }
+  string_with_kind(const char* str, const size_t size, const unsigned char kind)
+      : std::string(str, size), _kind(kind) {}
   unsigned char kind() const { return _kind; }
 
-  bool operator==(const FullLightString& other) const;
-
-  friend FullLightStringHash;
+  string_with_kind compact() const;
+  bool operator==(const string_with_kind& other) const;
+  bool operator!=(const string_with_kind& other) const;
 };
 
-struct FullLightStringHash {
-  std::size_t operator()(const FullLightString& k) const noexcept;
+namespace std {
+template <>
+struct hash<string_with_kind> {
+  size_t operator()(const string_with_kind& k) const {
+    return hash<string>()(k);
+  }
 };
+}  // namespace std
 
-class LightString {
- private:
-  char* _data;
-  size_t _hash;
+PyObject* to_PyObject(const string_with_kind& str);
 
- public:
-  LightString(char* data, const size_t hash) : _data(data), _hash(hash) {}
+typedef std::unordered_map<string_with_kind, int> vocab_map;
 
-  LightString() : LightString(NULL, 0) {}
-
-  FullLightString to_full(const size_t byte_len,
-                          const unsigned char kind) const;
-
-  friend LightStringHash;
-  friend LightStringEqual;
-};
-
-struct LightStringHash {
-  size_t operator()(const LightString& k) const noexcept;
-};
-
-struct LightStringEqual {
- private:
-  size_t _len;
-
- public:
-  LightStringEqual() : _len(0) {}
-
-  LightStringEqual(size_t len) : _len(len) {}
-
-  bool operator()(const LightString& lhs, const LightString& rhs) const;
-};
-
-typedef std::unordered_map<FullLightString, int, FullLightStringHash> vocab_map;
-
-typedef std::unordered_map<LightString, int, LightStringHash, LightStringEqual>
-    counter_map;
+typedef std::unordered_map<string_with_kind, int> counter_map;
 
 class CharNgramCounter {
  private:
