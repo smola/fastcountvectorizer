@@ -46,7 +46,8 @@ bool string_with_kind::operator!=(const string_with_kind& other) const {
 }
 
 PyObject* to_PyObject(const string_with_kind& str) {
-  return PyUnicode_FromKindAndData(str.kind(), str.data(), str.size());
+  return PyUnicode_FromKindAndData(str.kind(), str.data(),
+                                   str.size() / str.kind());
 }
 
 void CharNgramCounter::prepare_vocab() {}
@@ -91,7 +92,7 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
 
   while (cur_byte_idx <= byte_len - n * kind) {
     // read ngram
-    string_with_kind str(data_ptr, n, kind);
+    string_with_kind str(data_ptr, n * kind, kind);
     cur_byte_idx += kind;
     data_ptr += kind;
 
@@ -162,7 +163,7 @@ int CharNgramCounter::copy_vocab(PyObject* dest_vocab) {
     };
     it = vocab.erase(it);
   }
-  return 0;
+  return error;
 }
 
 typedef struct {
