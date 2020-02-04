@@ -1,15 +1,7 @@
 #include "Python.h"
 #include "_ext.h"
+#include "pyutils.h"
 #include "thirdparty/catch.hpp"
-
-static bool py_initialized = false;
-
-void initialize_python() {
-  if (!py_initialized) {
-    py_initialized = true;
-  }
-  Py_Initialize();
-}
 
 void test_string_with_kind_basic(const char* STR, int SIZE, int KIND) {
   auto str = string_with_kind(STR, SIZE, KIND);
@@ -100,6 +92,15 @@ TEST_CASE("CharNgramCounter(1)") {
   counter.process_one((PyUnicodeObject*)obj);
   REQUIRE(counter.copy_vocab(vocab) == 0);
   REQUIRE(PyDict_Size(vocab) == 5);
+  PyObject* indptr = counter.get_indptr();
+  REQUIRE(indptr != nullptr);
+  PyObject* indices = counter.get_indices();
+  REQUIRE(indices != nullptr);
+  PyObject* values = counter.get_values();
+  REQUIRE(values != nullptr);
+  Py_XDECREF(values);
+  Py_XDECREF(indices);
+  Py_XDECREF(indptr);
   Py_XDECREF(obj);
   Py_XDECREF(vocab);
 }
@@ -119,6 +120,15 @@ TEST_CASE("CharNgramCounter(1) UCS2 simple") {
   counter.process_one((PyUnicodeObject*)obj);
   REQUIRE(counter.copy_vocab(vocab) == 0);
   REQUIRE(PyDict_Size(vocab) == 5);
+  PyObject* indptr = counter.get_indptr();
+  REQUIRE(indptr != nullptr);
+  PyObject* indices = counter.get_indices();
+  REQUIRE(indices != nullptr);
+  PyObject* values = counter.get_values();
+  REQUIRE(values != nullptr);
+  Py_XDECREF(values);
+  Py_XDECREF(indices);
+  Py_XDECREF(indptr);
   Py_XDECREF(obj);
   Py_XDECREF(vocab);
 }
@@ -138,6 +148,15 @@ TEST_CASE("CharNgramCounter(1) UCS2") {
   counter.process_one((PyUnicodeObject*)obj);
   REQUIRE(counter.copy_vocab(vocab) == 0);
   REQUIRE(PyDict_Size(vocab) == 5);
+  PyObject* indptr = counter.get_indptr();
+  REQUIRE(indptr != nullptr);
+  PyObject* indices = counter.get_indices();
+  REQUIRE(indices != nullptr);
+  PyObject* values = counter.get_values();
+  REQUIRE(values != nullptr);
+  Py_XDECREF(values);
+  Py_XDECREF(indices);
+  Py_XDECREF(indptr);
   Py_XDECREF(obj);
   Py_XDECREF(vocab);
 }
@@ -159,6 +178,15 @@ TEST_CASE("CharNgramCounter(1) UCS4 simple") {
   counter.process_one((PyUnicodeObject*)obj);
   REQUIRE(counter.copy_vocab(vocab) == 0);
   REQUIRE(PyDict_Size(vocab) == 5);
+  PyObject* indptr = counter.get_indptr();
+  REQUIRE(indptr != nullptr);
+  PyObject* indices = counter.get_indices();
+  REQUIRE(indices != nullptr);
+  PyObject* values = counter.get_values();
+  REQUIRE(values != nullptr);
+  Py_XDECREF(values);
+  Py_XDECREF(indices);
+  Py_XDECREF(indptr);
   Py_XDECREF(obj);
   Py_XDECREF(vocab);
 }
