@@ -69,6 +69,16 @@ def test_fastcountvectorizer_ngram1():
     )
 
 
+def test_fastcountvectorizer_ngram1_unicode():
+    cv = FastCountVectorizer(ngram_range=(1, 1))
+    check_cv(
+        cv, input=["ǟƂƇ"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["Ƃ", "Ƈ", "ǟ"]
+    )
+    check_cv(
+        cv, input=["ƇƂǟ"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["Ƃ", "Ƈ", "ǟ"]
+    )
+
+
 def test_fastcountvectorizer_ngram1_2():
     cv = FastCountVectorizer(ngram_range=(1, 2))
     check_cv(
