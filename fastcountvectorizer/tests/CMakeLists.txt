@@ -12,5 +12,10 @@ include_directories(${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer)
 
 add_executable(_ext_test ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_ext.cpp test__ext.cpp test__ext_impl.cpp)
 
+if(CMAKE_COMPILER_IS_GNUCXX)
+    target_compile_options(_ext_test PRIVATE --coverage)
+    target_link_libraries(_ext_test gcov)
+endif()
+
 add_test(NAME _ext COMMAND _ext_test)
 add_custom_target(run-tests COMMAND _ext_test)
