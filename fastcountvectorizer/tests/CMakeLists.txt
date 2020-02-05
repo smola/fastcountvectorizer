@@ -28,6 +28,14 @@ add_executable(_ext_test
         test__ext.cpp
         test__ext_impl.cpp)
 
+# set warning levels
+# see https://foonathan.net/2018/10/cmake-warnings/
+target_compile_options(_ext_test PRIVATE
+        $<$<OR:$<CXX_COMPILER_ID:Clang>,$<CXX_COMPILER_ID:AppleClang>,$<CXX_COMPILER_ID:GNU>>:
+        -Wall -Werror -Wextra -Wconversion -Wsign-conversion -pedantic-errors>
+        $<$<CXX_COMPILER_ID:MSVC>:
+        /W4>)
+
 if(CMAKE_COMPILER_IS_GNUCXX)
     target_compile_options(_ext_test PRIVATE --coverage)
     target_link_libraries(_ext_test gcov)

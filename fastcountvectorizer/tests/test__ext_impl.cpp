@@ -3,11 +3,11 @@
 #include "pyutils.h"
 #include "thirdparty/catch.hpp"
 
-void test_string_with_kind_basic(const char* STR, int SIZE, int KIND) {
+void test_string_with_kind_basic(const char* STR, size_t SIZE, uint8_t KIND) {
   auto str = string_with_kind(STR, SIZE, KIND);
   REQUIRE(str == str);
   REQUIRE(str != string_with_kind("xyz", 3, 1));
-  REQUIRE(str != string_with_kind(STR, SIZE, KIND + 1));
+  REQUIRE(str != string_with_kind(STR, SIZE, (uint8_t)(KIND + 1)));
   REQUIRE(str.size() == SIZE);
   REQUIRE(str.empty() == (SIZE == 0));
   REQUIRE(str.kind() == KIND);

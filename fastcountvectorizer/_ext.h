@@ -10,12 +10,12 @@
 
 class string_with_kind : public std::string {
  private:
-  unsigned char _kind;
+  uint8_t _kind;
 
  public:
-  string_with_kind(const char* str, const size_t size, const unsigned char kind)
+  string_with_kind(const char* str, const size_t size, const uint8_t kind)
       : std::string(str, size), _kind(kind) {}
-  unsigned char kind() const { return _kind; }
+  uint8_t kind() const { return _kind; }
 
   string_with_kind compact() const;
   bool operator==(const string_with_kind& other) const;
@@ -33,14 +33,14 @@ struct hash<string_with_kind> {
 
 PyObject* to_PyObject(const string_with_kind& str);
 
-typedef std::unordered_map<string_with_kind, int> vocab_map;
+typedef std::unordered_map<string_with_kind, size_t> vocab_map;
 
-typedef std::unordered_map<string_with_kind, int> counter_map;
+typedef std::unordered_map<string_with_kind, size_t> counter_map;
 
 class CharNgramCounter {
  private:
   vocab_map vocab;
-  const int n;
+  const unsigned int n;
 
   size_t result_array_len;
   std::vector<size_t>* values;
@@ -51,7 +51,7 @@ class CharNgramCounter {
   static PyObject* _vector_to_numpy(const std::vector<size_t>* v);
 
  public:
-  CharNgramCounter(const int n);
+  CharNgramCounter(const unsigned int n);
   ~CharNgramCounter();
 
   void process_one(PyUnicodeObject* obj);
