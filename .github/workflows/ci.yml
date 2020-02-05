@@ -50,12 +50,12 @@ jobs:
             echo "clang-format failed"
             exit 1
           fi
-  test:
+  test-linux-x64:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         python-version: ['3.5.x', '3.6.x', '3.7.x', '3.8.x']
-    name: test (Python ${{ matrix.python-version }})
+    name: test (Python ${{ matrix.python-version }}, Linux x86_64)
     steps:
       - uses: actions/checkout@v1
         with:
@@ -69,4 +69,40 @@ jobs:
       - run: sudo snap install cmake --classic
       - run: /snap/cmake/current/bin/cmake --version
       - run: /snap/cmake/current/bin/cmake .
-      - run: PATH="/snap/cmake/current/bin:$PATH" make run-tests
+      - run: /snap/cmake/current/bin/cmake --build . --target run-tests
+  test-windows-x64:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: ['3.8.x']
+    name: test (Python ${{ matrix.python-version }}, Windows x86_64)
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: 'x64'
+      - run: pip install tox numpy
+      # see: https://github.com/actions/virtual-environments/issues/294
+      #      and solutions used at https://github.com/python-pillow/Pillow
+      #      explanations at https://stevedower.id.au/blog/building-for-python-3-5-part-two/
+      #      tox passenv usage at http://lists.idyll.org/pipermail/testing-in-python/2015-December/006590.html
+      - name: run python tests
+        shell: cmd
+        run: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86_amd64
+          set MSSdk=1
+          set DISTUTILS_USE_SDK=1
+          set PY_VCRUNTIME_REDIST=true
+          set TOX_TESTENV_PASSENV=DISTUTILS_USE_SDK MSSdk INCLUDE LIB PY_VCRUNTIME_REDIST
+          tox
+      - run: cmake --version
+      - run: cmake .
+        # set Release build to avoid "fatal error LNK1104"
+        # If not set, python38_d.lib will be tried for debug,
+        # which does not exist.
+        # Also note it needs to be set here at build time, not
+        # at config time with CMAKE_BUILD_TYPE: https://stackoverflow.com/a/20423820
+      - run: cmake --build . --target run-tests --config Release
