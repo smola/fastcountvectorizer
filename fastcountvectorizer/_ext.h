@@ -43,7 +43,10 @@ class vocab_map {
   size_t size() const { return _m.size(); }
 };
 
-typedef std::unordered_map<string_with_kind, size_t> counter_map;
+class counter_map : public std::unordered_map<string_with_kind, size_t> {
+ public:
+  void increment_key(const string_with_kind& k);
+};
 
 class CharNgramCounter {
  private:

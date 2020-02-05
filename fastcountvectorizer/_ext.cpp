@@ -84,6 +84,15 @@ int vocab_map::flush_to(PyObject* dest_vocab) {
   return error;
 }
 
+void counter_map::increment_key(const string_with_kind& k) {
+  auto it = find(k);
+  if (it == end()) {
+    operator[](k) = 1;
+  } else {
+    it->second++;
+  }
+}
+
 void CharNgramCounter::prepare_vocab() {}
 
 PyObject* CharNgramCounter::_vector_to_numpy(const std::vector<size_t>* v) {
@@ -124,18 +133,10 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   counter_map::iterator cit;
 
   while (cur_byte_idx <= byte_len - n * kind) {
-    // read ngram
     string_with_kind str(data_ptr, n * kind, kind);
+    counters.increment_key(str);
     cur_byte_idx += kind;
     data_ptr += kind;
-
-    // increment counters
-    cit = counters.find(str);
-    if (cit == counters.end()) {
-      counters[str] = 1;
-    } else {
-      cit->second++;
-    }
   }
 
   result_array_len += counters.size();
