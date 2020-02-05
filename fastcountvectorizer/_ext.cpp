@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <vector>
 
+#define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #include "structmember.h"
 
@@ -18,13 +19,14 @@ string_with_kind string_with_kind::compact() const {
   if (_kind == 1) {
     return *this;
   }
-  PyObject* obj = PyUnicode_FromKindAndData(_kind, data(), size() / _kind);
-  const unsigned char new_kind = PyUnicode_KIND(obj);
+  PyObject* obj =
+      PyUnicode_FromKindAndData(_kind, data(), (Py_ssize_t)size() / _kind);
+  const auto new_kind = (uint8_t)PyUnicode_KIND(obj);
   if (new_kind == _kind) {
     Py_DECREF(obj);
     return *this;
   }
-  const size_t new_byte_len = PyUnicode_GET_LENGTH(obj) * new_kind;
+  const auto new_byte_len = (size_t)PyUnicode_GET_LENGTH(obj) * new_kind;
   string_with_kind new_str = string_with_kind((char*)PyUnicode_1BYTE_DATA(obj),
                                               new_byte_len, new_kind);
   Py_DECREF(obj);
@@ -47,7 +49,7 @@ bool string_with_kind::operator!=(const string_with_kind& other) const {
 
 PyObject* to_PyObject(const string_with_kind& str) {
   return PyUnicode_FromKindAndData(str.kind(), str.data(),
-                                   str.size() / str.kind());
+                                   (Py_ssize_t)str.size() / str.kind());
 }
 
 void CharNgramCounter::prepare_vocab() {}
@@ -62,7 +64,7 @@ PyObject* CharNgramCounter::_vector_to_numpy(const std::vector<size_t>* v) {
   return a;
 }
 
-CharNgramCounter::CharNgramCounter(const int n) : n(n) {
+CharNgramCounter::CharNgramCounter(const unsigned int n) : n(n) {
   prepare_vocab();
   result_array_len = 0;
   values = new std::vector<size_t>();
@@ -79,8 +81,8 @@ CharNgramCounter::~CharNgramCounter() {
 
 void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   const char* data = (char*)PyUnicode_1BYTE_DATA(obj);
-  const size_t len = PyUnicode_GET_LENGTH(obj);
-  const auto kind = (unsigned char)PyUnicode_KIND(obj);
+  const auto len = (size_t)PyUnicode_GET_LENGTH(obj);
+  const auto kind = (uint8_t)PyUnicode_KIND(obj);
   const size_t byte_len = len * kind;
 
   char* data_ptr = (char*)data;
@@ -186,9 +188,14 @@ static int CharNgramCounter_init(CharNgramCounterObject* self, PyObject* args,
     return -1;
   }
 
+  if (n <= 0) {
+    PyErr_SetString(PyExc_ValueError, "n must be greater than 0");
+    return -1;
+  }
+
   Py_INCREF(vocab);
   self->vocab = vocab;
-  self->counter = new CharNgramCounter(n);
+  self->counter = new CharNgramCounter((unsigned int)n);
   return 0;
 }
 
@@ -248,10 +255,15 @@ static PyMethodDef CharNgramCounter_methods[] = {
     {"process", (PyCFunction)CharNgramCounter_process,
      METH_VARARGS | METH_KEYWORDS, NULL},
     {"get_result", (PyCFunction)CharNgramCounter_get_result, METH_NOARGS, NULL},
-    {NULL} /* Sentinel */
+    {NULL, NULL, 0, NULL} /* Sentinel */
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 static PyTypeObject CharNgramCounterType = {PyVarObject_HEAD_INIT(NULL, 0)};
+
+static PyModuleDef _extmodule = {PyModuleDef_HEAD_INIT};
+#pragma GCC diagnostic pop
 
 static void CharNgramCounterType_init_struct() {
   CharNgramCounterType.tp_name = "fastcountvectorizer._ext._CharNgramCounter";
@@ -265,19 +277,13 @@ static void CharNgramCounterType_init_struct() {
   CharNgramCounterType.tp_methods = CharNgramCounter_methods;
 }
 
-PyModuleDef _create_pymoduledef() {
-  // Official Python examples use designated initializers for PyModuleDef
-  // which are supported in C99 as well as recent C++ standards. It is, however,
-  // not supported in C++-11 and MSVC will require /std:latest for them.
-  PyModuleDef def = {PyModuleDef_HEAD_INIT};
-  def.m_name = "fastcountvectorizer._ext";
-  def.m_size = -1;
-  return def;
+static void PyModuleDef_init_struct() {
+  _extmodule.m_name = "fastcountvectorizer._ext";
+  _extmodule.m_size = -1;
 }
 
-static PyModuleDef _extmodule = _create_pymoduledef();
-
 PyMODINIT_FUNC PyInit__ext(void) {
+  PyModuleDef_init_struct();
   CharNgramCounterType_init_struct();
   if (PyType_Ready(&CharNgramCounterType) < 0) return NULL;
 
