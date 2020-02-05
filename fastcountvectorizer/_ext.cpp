@@ -52,6 +52,38 @@ PyObject* to_PyObject(const string_with_kind& str) {
                                    (Py_ssize_t)str.size() / str.kind());
 }
 
+size_t vocab_map::operator[](const string_with_kind& k) {
+  auto it = _m.find(k);
+  size_t idx;
+  if (it == _m.end()) {
+    idx = _m.size();
+    _m[k] = idx;
+  } else {
+    idx = it->second;
+  }
+  return idx;
+}
+
+int vocab_map::flush_to(PyObject* dest_vocab) {
+  PyObject* key;
+  PyObject* value;
+  auto it = _m.begin();
+  int error = 0;
+  while (it != _m.end()) {
+    if (error == 0) {
+      key = to_PyObject(it->first);
+      value = PyLong_FromSize_t(it->second);
+      if (PyDict_SetItem(dest_vocab, key, value) != 0) {
+        error = -1;
+      }
+      Py_DECREF(key);
+      Py_DECREF(value);
+    };
+    it = _m.erase(it);
+  }
+  return error;
+}
+
 void CharNgramCounter::prepare_vocab() {}
 
 PyObject* CharNgramCounter::_vector_to_numpy(const std::vector<size_t>* v) {
@@ -90,7 +122,6 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
 
   counter_map counters;
   counter_map::iterator cit;
-  vocab_map::iterator vit;
 
   while (cur_byte_idx <= byte_len - n * kind) {
     // read ngram
@@ -113,16 +144,8 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   indptr->push_back(result_array_len);
 
   for (cit = counters.begin(); cit != counters.end(); cit++) {
-    vit = vocab.find(cit->first);
-    if (vit == vocab.end()) {
-      const size_t term_idx = vocab.size();
-      string_with_kind cstr = cit->first.compact();
-      vocab[cstr] = term_idx;
-      indices->push_back(term_idx);
-    } else {
-      const size_t term_idx = vit->second;
-      indices->push_back(term_idx);
-    }
+    const size_t term_idx = vocab[cit->first.compact()];
+    indices->push_back(term_idx);
     values->push_back(cit->second);
   }
 }
@@ -149,23 +172,7 @@ PyObject* CharNgramCounter::get_indptr() {
 }
 
 int CharNgramCounter::copy_vocab(PyObject* dest_vocab) {
-  PyObject* key;
-  PyObject* value;
-  auto it = vocab.begin();
-  int error = 0;
-  while (it != vocab.end()) {
-    if (error == 0) {
-      key = to_PyObject(it->first);
-      value = PyLong_FromSize_t(it->second);
-      if (PyDict_SetItem(dest_vocab, key, value) != 0) {
-        error = -1;
-      }
-      Py_DECREF(key);
-      Py_DECREF(value);
-    };
-    it = vocab.erase(it);
-  }
-  return error;
+  return vocab.flush_to(dest_vocab);
 }
 
 typedef struct {
