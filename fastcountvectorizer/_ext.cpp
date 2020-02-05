@@ -265,12 +265,17 @@ static void CharNgramCounterType_init_struct() {
   CharNgramCounterType.tp_methods = CharNgramCounter_methods;
 }
 
-static PyModuleDef _extmodule = {
-    PyModuleDef_HEAD_INIT,
-    .m_name = "fastcountvectorizer._ext",
-    .m_doc = NULL,
-    .m_size = -1,
-};
+PyModuleDef _create_pymoduledef() {
+  // Official Python examples use designated initializers for PyModuleDef
+  // which are supported in C99 as well as recent C++ standards. It is, however,
+  // not supported in C++-11 and MSVC will require /std:latest for them.
+  PyModuleDef def = {PyModuleDef_HEAD_INIT};
+  def.m_name = "fastcountvectorizer._ext";
+  def.m_size = -1;
+  return def;
+}
+
+static PyModuleDef _extmodule = _create_pymoduledef();
 
 PyMODINIT_FUNC PyInit__ext(void) {
   CharNgramCounterType_init_struct();
