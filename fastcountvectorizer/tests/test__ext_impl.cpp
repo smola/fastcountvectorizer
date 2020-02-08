@@ -81,6 +81,59 @@ TEST_CASE("string_with_kind to PyObject") {
   Py_DECREF(obj);
 }
 
+TEST_CASE("vocab_map") {
+  initialize_python();
+
+  vocab_map v;
+
+  REQUIRE(v.size() == 0);
+
+  REQUIRE(v[string_with_kind("a", 1, 1)] == 0);
+  REQUIRE(v[string_with_kind("a", 1, 1)] == 0);
+  REQUIRE(v[string_with_kind("b", 1, 1)] == 1);
+  REQUIRE(v[string_with_kind("a", 1, 1)] == 0);
+  REQUIRE(v[string_with_kind("b", 1, 1)] == 1);
+
+  REQUIRE(v.size() == 2);
+
+  PyObject* dict = PyDict_New();
+  REQUIRE(dict != nullptr);
+  REQUIRE(v.flush_to(dict) == 0);
+
+  REQUIRE(v.size() == 0);
+  REQUIRE(PyDict_Size(dict) == 2);
+
+  PyObject *key, *value;
+  Py_ssize_t pos = 0;
+
+  while (PyDict_Next(dict, &pos, &key, &value)) {
+    if (PyUnicode_1BYTE_DATA(key)[0] == 'a') {
+      REQUIRE(PyLong_AsLong(value) == 0);
+    } else if (PyUnicode_1BYTE_DATA(key)[0] == 'b') {
+      REQUIRE(PyLong_AsLong(value) == 1);
+    } else {
+      FAIL("unexpected key");
+    }
+  }
+
+  Py_DECREF(dict);
+
+  // No effect, but no crash
+  REQUIRE(v.flush_to(dict) == 0);
+}
+
+TEST_CASE("vocab_map error") {
+  initialize_python();
+
+  vocab_map v;
+  REQUIRE(v[string_with_kind("a", 1, 1)] == 0);
+  PyObject* bad_dict = PyList_New(0);
+  REQUIRE(v.flush_to(bad_dict) == -1);
+  REQUIRE(PyErr_Occurred() != nullptr);
+  PyErr_Clear();
+  Py_DECREF(bad_dict);
+}
+
 TEST_CASE("CharNgramCounter(1)") {
   initialize_python();
 

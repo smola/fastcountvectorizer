@@ -33,7 +33,15 @@ struct hash<string_with_kind> {
 
 PyObject* to_PyObject(const string_with_kind& str);
 
-typedef std::unordered_map<string_with_kind, size_t> vocab_map;
+class vocab_map {
+ private:
+  std::unordered_map<string_with_kind, size_t> _m;
+
+ public:
+  size_t operator[](const string_with_kind& k);
+  int flush_to(PyObject* dest_dict);
+  size_t size() const { return _m.size(); }
+};
 
 typedef std::unordered_map<string_with_kind, size_t> counter_map;
 
