@@ -6,32 +6,8 @@
 #include <vector>
 
 #include "Python.h"
+#include "_strings.h"
 #include "tsl/sparse_map.h"
-
-class string_with_kind : public std::string {
- private:
-  uint8_t _kind;
-
- public:
-  string_with_kind(const char* str, const size_t size, const uint8_t kind)
-      : std::string(str, size), _kind(kind) {}
-  uint8_t kind() const { return _kind; }
-
-  string_with_kind compact() const;
-  bool operator==(const string_with_kind& other) const;
-  bool operator!=(const string_with_kind& other) const;
-};
-
-namespace std {
-template <>
-struct hash<string_with_kind> {
-  size_t operator()(const string_with_kind& k) const {
-    return hash<string>()(k);
-  }
-};
-}  // namespace std
-
-PyObject* to_PyObject(const string_with_kind& str);
 
 class vocab_map {
  private:
@@ -43,9 +19,16 @@ class vocab_map {
   size_t size() const { return _m.size(); }
 };
 
-class counter_map : public tsl::sparse_map<string_with_kind, size_t> {
+class counter_map
+    : public tsl::sparse_map<const char*, size_t, fixed_length_string_hash,
+                             fixed_length_string_equal_to> {
  public:
-  void increment_key(const string_with_kind& k);
+  explicit counter_map(const size_t str_length)
+      : tsl::sparse_map<const char*, size_t, fixed_length_string_hash,
+                        fixed_length_string_equal_to>(
+            0, fixed_length_string_hash(str_length),
+            fixed_length_string_equal_to(str_length)) {}
+  void increment_key(const char* k);
 };
 
 class CharNgramCounter {
