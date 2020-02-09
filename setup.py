@@ -1,13 +1,15 @@
 import setuptools
 from distutils.core import Extension
 import numpy
+from glob import glob
 
 ext_modules = [
     Extension(
         "fastcountvectorizer._ext",
-        sources=["fastcountvectorizer/_ext.cpp"],
-        depends=["fastcountvectorizer/_ext.h"],
-        include_dirs=[numpy.get_include()],
+        sources=glob("fastcountvectorizer/*.cpp"),
+        depends=glob("fastcountvectorizer/*.h")
+        + glob("fastcountvectorizer/thirdparty/**/*.*", recursive=True),
+        include_dirs=[numpy.get_include(), "fastcountvectorizer/thirdparty"],
         language="c++",
     )
 ]

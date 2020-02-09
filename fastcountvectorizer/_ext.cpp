@@ -2,7 +2,6 @@
 // Authors: Santiago M. Mola <santi@mola.io>
 // License: MIT License
 
-#include <unordered_map>
 #include <vector>
 
 #define PY_SSIZE_T_CLEAN
@@ -87,9 +86,9 @@ int vocab_map::flush_to(PyObject* dest_vocab) {
 void counter_map::increment_key(const string_with_kind& k) {
   auto it = find(k);
   if (it == end()) {
-    operator[](k) = 1;
+    insert({k, 1});
   } else {
-    it->second++;
+    it.value()++;
   }
 }
 

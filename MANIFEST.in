@@ -1,3 +1,4 @@
 include fastcountvectorizer/*.h
 include fastcountvectorizer/*.cpp
+graft fastcountvectorizer/thirdparty
 include README.md
