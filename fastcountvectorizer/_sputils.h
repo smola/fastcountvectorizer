@@ -7,6 +7,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL fcv_ARRAY_API
+#define NO_IMPORT_ARRAY
 #include <numpy/ndarraytypes.h>
 
 // vector_to_numpy converts a std::vector to a numpy.array.
@@ -40,6 +41,7 @@ class index_vector {
   const std::vector<npy_int32>& data32() const { return *v32; }
   std::vector<npy_int64>& data64() { return *v64; }
   const std::vector<npy_int64>& data64() const { return *v64; }
+  npy_int64 operator[](size_t i) const;
 };
 
 #endif  // FCV_SPUTILS_H

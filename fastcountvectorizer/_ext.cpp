@@ -236,6 +236,55 @@ void CharNgramCounter::expand_counts() {
   delete new_values;
 }
 
+std::vector<size_t> CharNgramCounter::document_frequencies() const {
+  std::vector<size_t> docfreq(vocab.size(), 0);
+  for (size_t i = 0; i < indptr->size() - 1; i++) {
+    for (size_t j = (size_t)(*indptr)[i]; j < (size_t)(*indptr)[i + 1]; j++) {
+      const npy_int64 idx = (*indices)[j];
+      docfreq[(size_t)idx]++;
+    }
+  }
+  return docfreq;
+}
+
+PyObject* CharNgramCounter::limit_features(const size_t min_df,
+                                           const size_t max_df) {
+  PyObject* stop_words = PySet_New(nullptr);
+  std::vector<npy_int64> new_vocab_indices(vocab.size(), -1);
+  std::vector<size_t> docfreq = document_frequencies();
+  std::vector<std::pair<string_with_kind, size_t>> vocab_copy =
+      vocab.to_vector();
+  size_t new_index = 0;
+  for (auto it = vocab_copy.begin(); it != vocab_copy.end(); it++) {
+    const size_t old_idx = it->second;
+    const size_t f = docfreq[old_idx];
+    if (f >= min_df && f <= max_df) {
+      vocab.set_index(it->first, new_index);
+      new_vocab_indices[old_idx] = (npy_int64)new_index;
+      new_index++;
+    } else {
+      PyObject* pystr = it->first.toPyObject();
+      PySet_Add(stop_words, pystr);
+      Py_DECREF(pystr);
+      vocab.erase(it->first);
+    }
+  }
+
+  auto new_indices = new index_vector();
+  auto new_indptr = new index_vector();
+  auto new_values = new std::vector<npy_int64>();
+  transform_indices(vocab.size(), new_vocab_indices, *indptr, *indices, *values,
+                    *new_indptr, *new_indices, *new_values);
+  std::swap(indices, new_indices);
+  delete new_indices;
+  std::swap(indptr, new_indptr);
+  delete new_indptr;
+  std::swap(values, new_values);
+  delete new_values;
+
+  return stop_words;
+}
+
 PyObject* CharNgramCounter::get_values() {
   PyObject* v = vector_to_numpy(*values);
   delete values;
@@ -337,6 +386,30 @@ static PyObject* CharNgramCounter_postprocess(CharNgramCounterObject* self,
   Py_RETURN_NONE;
 }
 
+static PyObject* CharNgramCounter_limit_features(CharNgramCounterObject* self,
+                                                 PyObject* args,
+                                                 PyObject* kwds) {
+  Py_ssize_t min_df, max_df;
+  static const char* kwlist[] = {"min_df", "max_df", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "nn", const_cast<char**>(kwlist),
+                                   &min_df, &max_df)) {
+    return nullptr;
+  }
+
+  if (min_df < 0) {
+    PyErr_SetString(PyExc_ValueError, "min_df must be equal or greater than 0");
+    return nullptr;
+  }
+
+  if (max_df < min_df) {
+    PyErr_SetString(PyExc_ValueError,
+                    "max_df must be equal or greater than min_df");
+    return nullptr;
+  }
+
+  return self->counter->limit_features((size_t)min_df, (size_t)max_df);
+}
+
 static PyObject* CharNgramCounter_get_result(CharNgramCounterObject* self,
                                              PyObject* Py_UNUSED(ignored)) {
   PyObject* values = self->counter->get_values();
@@ -368,6 +441,8 @@ static PyMethodDef CharNgramCounter_methods[] = {
      METH_VARARGS | METH_KEYWORDS, NULL},
     {"postprocess", (PyCFunction)CharNgramCounter_postprocess, METH_NOARGS,
      NULL},
+    {"limit_features", (PyCFunction)CharNgramCounter_limit_features,
+     METH_VARARGS | METH_KEYWORDS, NULL},
     {"get_result", (PyCFunction)CharNgramCounter_get_result, METH_NOARGS, NULL},
     {NULL, NULL, 0, NULL} /* Sentinel */
 };

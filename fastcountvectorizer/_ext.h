@@ -19,6 +19,8 @@ class vocab_map {
   int flush_to(PyObject* dest_dict);
   std::vector<std::pair<string_with_kind, size_t>> to_vector() const;
   size_t size() const { return _m.size(); }
+  void erase(const string_with_kind& k) { _m.erase(k); }
+  void set_index(const string_with_kind& k, const size_t v) { _m[k] = v; }
 };
 
 class counter_map
@@ -47,6 +49,7 @@ class CharNgramCounter {
 
   void prepare_vocab();
   bool need_expand_counts() const;
+  std::vector<size_t> document_frequencies() const;
 
  public:
   CharNgramCounter(const unsigned int min_n, const unsigned int max_n);
@@ -54,6 +57,7 @@ class CharNgramCounter {
 
   void process_one(PyUnicodeObject* obj);
   void expand_counts();
+  PyObject* limit_features(size_t min_df, size_t max_df);
   PyObject* get_values();
   PyObject* get_indices();
   PyObject* get_indptr();

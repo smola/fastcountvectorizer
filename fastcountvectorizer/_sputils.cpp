@@ -91,6 +91,14 @@ size_t index_vector::size() const {
   }
 }
 
+npy_int64 index_vector::operator[](const size_t i) const {
+  if (use_64) {
+    return (*v64)[i];
+  } else {
+    return (npy_int64)(*v32)[i];
+  }
+}
+
 PyObject* index_vector::to_numpy() const {
   if (use_64) {
     return vector_to_numpy(*v64);
