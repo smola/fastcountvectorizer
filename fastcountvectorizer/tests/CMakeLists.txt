@@ -25,10 +25,12 @@ include_directories(SYSTEM ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer
 include_directories(SYSTEM ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/tests/thirdparty)
 
 add_executable(_ext_test
+        ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_strings.cpp
         ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_ext.cpp
         pyutils.cpp
         test__ext.cpp
-        test__ext_impl.cpp)
+        test__ext_impl.cpp
+        test__strings_impl.cpp)
 
 # set warning levels
 # see https://foonathan.net/2018/10/cmake-warnings/

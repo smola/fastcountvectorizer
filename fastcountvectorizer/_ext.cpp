@@ -13,43 +13,7 @@
 #include <numpy/numpyconfig.h>
 
 #include "_ext.h"
-
-string_with_kind string_with_kind::compact() const {
-  if (_kind == 1) {
-    return *this;
-  }
-  PyObject* obj =
-      PyUnicode_FromKindAndData(_kind, data(), (Py_ssize_t)size() / _kind);
-  const auto new_kind = (uint8_t)PyUnicode_KIND(obj);
-  if (new_kind == _kind) {
-    Py_DECREF(obj);
-    return *this;
-  }
-  const auto new_byte_len = (size_t)PyUnicode_GET_LENGTH(obj) * new_kind;
-  string_with_kind new_str = string_with_kind((char*)PyUnicode_1BYTE_DATA(obj),
-                                              new_byte_len, new_kind);
-  Py_DECREF(obj);
-  return new_str;
-}
-
-bool string_with_kind::operator==(const string_with_kind& other) const {
-  if (size() != other.size()) {
-    return false;
-  }
-  if (_kind != other._kind) {
-    return false;
-  }
-  return memcmp(data(), other.data(), size()) == 0;
-}
-
-bool string_with_kind::operator!=(const string_with_kind& other) const {
-  return !operator==(other);
-}
-
-PyObject* to_PyObject(const string_with_kind& str) {
-  return PyUnicode_FromKindAndData(str.kind(), str.data(),
-                                   (Py_ssize_t)str.size() / str.kind());
-}
+#include "_strings.h"
 
 size_t vocab_map::operator[](const string_with_kind& k) {
   auto it = _m.find(k);
@@ -70,7 +34,7 @@ int vocab_map::flush_to(PyObject* dest_vocab) {
   int error = 0;
   while (it != _m.end()) {
     if (error == 0) {
-      key = to_PyObject(it->first);
+      key = it->first.toPyObject();
       value = PyLong_FromSize_t(it->second);
       if (PyDict_SetItem(dest_vocab, key, value) != 0) {
         error = -1;
@@ -83,7 +47,7 @@ int vocab_map::flush_to(PyObject* dest_vocab) {
   return error;
 }
 
-void counter_map::increment_key(const string_with_kind& k) {
+void counter_map::increment_key(const char* k) {
   auto it = find(k);
   if (it == end()) {
     insert({k, 1});
@@ -125,17 +89,12 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   const auto kind = (uint8_t)PyUnicode_KIND(obj);
   const size_t byte_len = len * kind;
 
-  char* data_ptr = (char*)data;
-  size_t cur_byte_idx = 0;
-
-  counter_map counters;
+  counter_map counters(kind * n);
   counter_map::iterator cit;
 
-  while (cur_byte_idx <= byte_len - n * kind) {
-    string_with_kind str(data_ptr, n * kind, kind);
-    counters.increment_key(str);
-    cur_byte_idx += kind;
-    data_ptr += kind;
+  for (size_t i = 0; i <= byte_len - n * kind; i += kind) {
+    const char* data_ptr = data + i;
+    counters.increment_key(data_ptr);
   }
 
   result_array_len += counters.size();
@@ -144,7 +103,8 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
   indptr->push_back(result_array_len);
 
   for (cit = counters.begin(); cit != counters.end(); cit++) {
-    const size_t term_idx = vocab[cit->first.compact()];
+    const size_t term_idx =
+        vocab[string_with_kind::compact(cit->first, n * kind, kind)];
     indices->push_back(term_idx);
     values->push_back(cit->second);
   }
