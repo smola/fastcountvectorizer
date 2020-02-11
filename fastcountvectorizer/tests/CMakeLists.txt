@@ -21,6 +21,8 @@ link_libraries(${Python3_LIBRARIES})
 
 
 include_directories(${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer)
+include_directories(SYSTEM ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/thirdparty)
+include_directories(SYSTEM ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/tests/thirdparty)
 
 add_executable(_ext_test
         ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/_ext.cpp

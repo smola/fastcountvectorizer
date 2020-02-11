@@ -3,10 +3,10 @@
 #define FCV_EXT_H
 
 #include <cstdint>
-#include <unordered_map>
 #include <vector>
 
 #include "Python.h"
+#include "tsl/sparse_map.h"
 
 class string_with_kind : public std::string {
  private:
@@ -35,7 +35,7 @@ PyObject* to_PyObject(const string_with_kind& str);
 
 class vocab_map {
  private:
-  std::unordered_map<string_with_kind, size_t> _m;
+  tsl::sparse_map<string_with_kind, size_t> _m;
 
  public:
   size_t operator[](const string_with_kind& k);
@@ -43,7 +43,7 @@ class vocab_map {
   size_t size() const { return _m.size(); }
 };
 
-class counter_map : public std::unordered_map<string_with_kind, size_t> {
+class counter_map : public tsl::sparse_map<string_with_kind, size_t> {
  public:
   void increment_key(const string_with_kind& k);
 };

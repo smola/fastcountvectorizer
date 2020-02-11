@@ -1,7 +1,7 @@
 #include "Python.h"
 #include "_ext.h"
+#include "catch.hpp"
 #include "pyutils.h"
-#include "thirdparty/catch.hpp"
 
 void test_string_with_kind_basic(const char* STR, size_t SIZE, uint8_t KIND) {
   auto str = string_with_kind(STR, SIZE, KIND);
