@@ -57,6 +57,26 @@ jobs:
       - run: cmake --version
       - run: cmake .
       - run: cmake --build . --target run-tests
+  test-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: ['3.7.x']
+        architecture: ['x64']
+    name: test (Python ${{ matrix.python-version }}, macOS ${{ matrix.architecture }})
+    steps:
+      - uses: actions/checkout@v1
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@v1
+        with:
+          python-version: ${{ matrix.python-version }}
+          architecture: ${{ matrix.architecture }}
+      - run: pip3 install tox numpy
+      - run: tox -e test
+      - run: cmake --version
+      - run: cmake .
+      - run: cmake --build . --target run-tests
   test-windows:
     runs-on: windows-latest
     strategy:
