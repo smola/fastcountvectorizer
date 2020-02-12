@@ -5,8 +5,8 @@ on:
       - master
   pull_request: {}
 jobs:
-  lint-black:
-    name: lint (black)
+  lint-tox:
+    name: lint (tox:lint)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
@@ -16,21 +16,8 @@ jobs:
         with:
           python-version: '3.8.x'
           architecture: 'x64'
-      - run: pip install black
-      - run: black --check .
-  lint-flake8:
-    name: lint (flake8)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-        with:
-          fetch-depth: 1
-      - uses: actions/setup-python@v1
-        with:
-          python-version: '3.8.x'
-          architecture: 'x64'
-      - run: pip install flake8 flake8-bugbear
-      - run: flake8 --exclude=fastcountvectorizer/tests/test_sklearn.py
+      - run: pip install tox
+      - run: tox -e lint
   lint-clang-format:
     name: lint (clang-format)
     runs-on: ubuntu-latest
@@ -65,7 +52,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           architecture: 'x64'
       - run: pip install tox numpy
-      - run: tox
+      - run: tox -e test
       - run: sudo snap install cmake --classic
       - run: /snap/cmake/current/bin/cmake --version
       - run: /snap/cmake/current/bin/cmake .
@@ -97,7 +84,7 @@ jobs:
           set DISTUTILS_USE_SDK=1
           set PY_VCRUNTIME_REDIST=true
           set TOX_TESTENV_PASSENV=DISTUTILS_USE_SDK MSSdk INCLUDE LIB PY_VCRUNTIME_REDIST
-          tox
+          tox -e test
       - run: cmake --version
       - run: cmake .
         # set Release build to avoid "fatal error LNK1104"

@@ -1,8 +1,7 @@
-import pytest
-
-from scipy.sparse import lil_matrix
-from numpy.testing import assert_array_almost_equal
 import numpy as np
+import pytest
+from numpy.testing import assert_array_almost_equal
+from scipy.sparse import lil_matrix
 
 from fastcountvectorizer import FastCountVectorizer
 

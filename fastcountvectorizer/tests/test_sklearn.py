@@ -34,6 +34,8 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+# flake8: noqa
+
 from collections.abc import Mapping
 import re
 import warnings
