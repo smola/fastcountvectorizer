@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "Python.h"
+#include "_sputils.h"
 #include "_strings.h"
 #include "tsl/sparse_map.h"
 
@@ -20,11 +21,11 @@ class vocab_map {
 };
 
 class counter_map
-    : public tsl::sparse_map<const char*, size_t, fixed_length_string_hash,
+    : public tsl::sparse_map<const char*, npy_int64, fixed_length_string_hash,
                              fixed_length_string_equal_to> {
  public:
   explicit counter_map(const size_t str_length)
-      : tsl::sparse_map<const char*, size_t, fixed_length_string_hash,
+      : tsl::sparse_map<const char*, npy_int64, fixed_length_string_hash,
                         fixed_length_string_equal_to>(
             0, fixed_length_string_hash(str_length),
             fixed_length_string_equal_to(str_length)) {}
@@ -37,12 +38,11 @@ class CharNgramCounter {
   const unsigned int n;
 
   size_t result_array_len;
-  std::vector<size_t>* values;
-  std::vector<size_t>* indices;
-  std::vector<size_t>* indptr;
+  std::vector<npy_int64>* values;
+  index_vector* indices;
+  index_vector* indptr;
 
   void prepare_vocab();
-  static PyObject* _vector_to_numpy(const std::vector<size_t>* v);
 
  public:
   CharNgramCounter(const unsigned int n);

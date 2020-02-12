@@ -2,6 +2,7 @@
 // Authors: Santiago M. Mola <santi@mola.io>
 // License: MIT License
 
+#include <stdexcept>
 #include <vector>
 
 #define PY_SSIZE_T_CLEAN
@@ -9,10 +10,11 @@
 #include "structmember.h"
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+#define PY_ARRAY_UNIQUE_SYMBOL fcv_ARRAY_API
 #include <numpy/arrayobject.h>
-#include <numpy/numpyconfig.h>
 
 #include "_ext.h"
+#include "_sputils.h"
 #include "_strings.h"
 
 size_t vocab_map::operator[](const string_with_kind& k) {
@@ -58,22 +60,12 @@ void counter_map::increment_key(const char* k) {
 
 void CharNgramCounter::prepare_vocab() {}
 
-PyObject* CharNgramCounter::_vector_to_numpy(const std::vector<size_t>* v) {
-  PyObject* a;
-  const size_t size = v->size();
-  npy_intp shape[1];
-  shape[0] = (npy_intp)size;
-  a = PyArray_SimpleNew(1, shape, NPY_UINT64);
-  memcpy(PyArray_DATA((PyArrayObject*)a), v->data(), size * sizeof(size_t));
-  return a;
-}
-
 CharNgramCounter::CharNgramCounter(const unsigned int n) : n(n) {
   prepare_vocab();
   result_array_len = 0;
-  values = new std::vector<size_t>();
-  indices = new std::vector<size_t>();
-  indptr = new std::vector<size_t>();
+  values = new std::vector<npy_int64>();
+  indices = new index_vector();
+  indptr = new index_vector();
   indptr->push_back(0);
 }
 
@@ -99,7 +91,9 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
 
   result_array_len += counters.size();
   values->reserve(counters.size());
+  indices->set_max_value(vocab.size());
   indices->reserve(counters.size());
+  indptr->set_max_value(vocab.size());
   indptr->push_back(result_array_len);
 
   for (cit = counters.begin(); cit != counters.end(); cit++) {
@@ -111,21 +105,21 @@ void CharNgramCounter::process_one(PyUnicodeObject* obj) {
 }
 
 PyObject* CharNgramCounter::get_values() {
-  PyObject* v = _vector_to_numpy(values);
+  PyObject* v = vector_to_numpy(*values);
   delete values;
   values = NULL;
   return v;
 }
 
 PyObject* CharNgramCounter::get_indices() {
-  PyObject* v = _vector_to_numpy(indices);
+  PyObject* v = indices->to_numpy();
   delete indices;
   indices = NULL;
   return v;
 }
 
 PyObject* CharNgramCounter::get_indptr() {
-  PyObject* v = _vector_to_numpy(indptr);
+  PyObject* v = indptr->to_numpy();
   delete indptr;
   indptr = NULL;
   return v;
