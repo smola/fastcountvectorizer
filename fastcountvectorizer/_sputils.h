@@ -26,9 +26,10 @@ class index_vector {
   std::vector<npy_int64>* v64;
   bool use_64;
 
+  explicit index_vector(bool use_64);
+
  public:
   index_vector();
-  index_vector(bool use_64);
   ~index_vector();
   void set_max_value(size_t val);
   void set_max_value(const std::vector<size_t>& vals);

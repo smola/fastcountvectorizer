@@ -209,11 +209,9 @@ void csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
     }
 
     for (size_t jj = 0; jj < length; jj++) {
-      if (true /* sums[head] != 0  (TODO)*/) {
-        Dj[ptr] = head + (TD)n_row;
-        Dx[ptr] = (TDD)sums[(size_t)head];
-        ptr++;
-      }
+      Dj[ptr] = head + (TD)n_row;
+      Dx[ptr] = (TDD)sums[(size_t)head];
+      ptr++;
 
       TD temp = head;
       head = next[(size_t)head];
@@ -231,14 +229,14 @@ size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
     const size_t n_row, const size_t n_col, const index_vector& Ap,
     const index_vector& Aj, const std::vector<TB>& Bj, const size_t nnz_per_row,
     const std::vector<TC>& Cp, const std::vector<TC>& Cj) {
-  const bool A64 = Aj.is_64();
-  if (A64) {
+#if NPY_BITSOF_INTP == 64
+  if (Aj.is_64()) {
     return csr_matmat_add_pass1_diagprefix_fixed_nnz(
         n_row, n_col, Ap.data64(), Aj.data64(), Bj, nnz_per_row, Cp, Cj);
-  } else {
-    return csr_matmat_add_pass1_diagprefix_fixed_nnz(
-        n_row, n_col, Ap.data32(), Aj.data32(), Bj, nnz_per_row, Cp, Cj);
   }
+#endif
+  return csr_matmat_add_pass1_diagprefix_fixed_nnz(
+      n_row, n_col, Ap.data32(), Aj.data32(), Bj, nnz_per_row, Cp, Cj);
 }
 
 template <class TAD, class TB, class TC, class TDD>
@@ -248,6 +246,7 @@ void csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
     const std::vector<TB>& Bj, const size_t nnz_per_row,
     const std::vector<TC>& Cp, const std::vector<TC>& Cj, index_vector& Dp,
     index_vector& Dj, std::vector<TDD>& Dx) {
+#if NPY_BITSOF_INTP == 64
   const bool A64 = Aj.is_64();
   const bool D64 = Dj.is_64();
   if (A64 && D64) {
@@ -267,6 +266,11 @@ void csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
         nnz, n_row, n_col, Ap.data32(), Aj.data32(), Ax, Bj, nnz_per_row, Cp,
         Cj, Dp.data32(), Dj.data32(), Dx);
   }
+#else
+  csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
+      nnz, n_row, n_col, Ap.data32(), Aj.data32(), Ax, Bj, nnz_per_row, Cp, Cj,
+      Dp.data32(), Dj.data32(), Dx);
+#endif
 }
 
 template <class TAD, class TB, class TC, class TDD>
@@ -300,11 +304,12 @@ inline size_t transform_indices_pass1(
 
 inline size_t transform_indices_pass1(
     const std::vector<npy_int64>& transformation, const index_vector& Aj) {
+#if NPY_BITSOF_INTP == 64
   if (Aj.is_64()) {
     return transform_indices_pass1(transformation, Aj.data64());
-  } else {
-    return transform_indices_pass1(transformation, Aj.data32());
   }
+#endif
+  return transform_indices_pass1(transformation, Aj.data32());
 }
 
 template <class I, class T, class D>
@@ -340,6 +345,7 @@ inline void transform_indices_pass2(
     const size_t maxnnz, const std::vector<npy_int64>& transformation,
     const index_vector& Ap, const index_vector& Aj, const std::vector<D>& Ax,
     index_vector& Bp, index_vector& Bj, std::vector<D>& Bx) {
+#if NPY_BITSOF_INTP == 64
   const bool A64 = Aj.is_64();
   const bool B64 = Bj.is_64();
   if (A64 && B64) {
@@ -355,6 +361,10 @@ inline void transform_indices_pass2(
     transform_indices_pass2(maxnnz, transformation, Ap.data32(), Aj.data32(),
                             Ax, Bp.data32(), Bj.data32(), Bx);
   }
+#else
+  transform_indices_pass2(maxnnz, transformation, Ap.data32(), Aj.data32(), Ax,
+                          Bp.data32(), Bj.data32(), Bx);
+#endif
 }
 
 template <class I, class T>

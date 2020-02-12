@@ -46,7 +46,13 @@ index_vector::~index_vector() {
 }
 
 void index_vector::set_max_value(size_t val) {
+#if NPY_BITSOF_INTP == 64
   if (!use_64 && needs_npy_int64(val)) {
+    if (val > NPY_MAX_INT64) {
+      throw std::overflow_error(
+          "too many values: 64 bits indexing not supported on 32 bits "
+          "architectures");
+    }
     use_64 = true;
     v64 = new std::vector<npy_int64>(v32->size());
     for (size_t i = 0; i < v32->size(); i++) {
@@ -55,6 +61,13 @@ void index_vector::set_max_value(size_t val) {
     delete v32;
     v32 = nullptr;
   }
+#else
+  if (needs_npy_int64(val)) {
+    throw std::overflow_error(
+        "too many values: 64 bits indexing not supported on 32 bits "
+        "architectures");
+  }
+#endif
 }
 
 void index_vector::set_max_value(const std::vector<size_t>& vals) {
