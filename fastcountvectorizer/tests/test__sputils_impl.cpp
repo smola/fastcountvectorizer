@@ -32,6 +32,7 @@ TEST_CASE("index_vector") {
   REQUIRE(PyArray_TYPE((PyArrayObject*)obj) == NPY_INT32);
   Py_XDECREF(obj);
 
+#if NPY_BITSOF_INTP == 64
   v.set_max_value(((size_t)NPY_MAX_INT32) + 1);
   REQUIRE(v.is_64());
   obj = v.to_numpy();
@@ -50,4 +51,16 @@ TEST_CASE("index_vector") {
 
   v.set_max_value(1);
   REQUIRE(v.is_64());
+#endif
+}
+
+TEST_CASE("index_vector overflow") {
+  initialize_python();
+  index_vector v;
+
+#if NPY_BITSOF_INTP == 32
+  REQUIRE_THROWS(v.set_max_value(((size_t)NPY_MAX_INT32) + 1));
+#else
+  REQUIRE_THROWS(v.set_max_value(((size_t)NPY_MAX_INT64) + 1));
+#endif
 }

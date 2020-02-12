@@ -43,7 +43,11 @@ class fixed_length_string_hash {
   explicit fixed_length_string_hash(const size_t length) noexcept
       : length(length) {}
   size_t operator()(const char* const& str) const {
+#if SIZEOF_SIZE_T == 8
     return XXH64(str, length, 0);
+#else
+    return XXH32(str, length, 0);
+#endif
   }
 };
 
