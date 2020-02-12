@@ -33,3 +33,7 @@ bool string_with_kind::operator!=(const string_with_kind& other) const {
 PyObject* string_with_kind::toPyObject() const {
   return PyUnicode_FromKindAndData(kind(), data(), (Py_ssize_t)size() / kind());
 }
+
+string_with_kind string_with_kind::suffix() const {
+  return string_with_kind::compact(data() + kind(), size() - kind(), kind());
+}

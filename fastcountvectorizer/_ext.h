@@ -17,6 +17,7 @@ class vocab_map {
  public:
   size_t operator[](const string_with_kind& k);
   int flush_to(PyObject* dest_dict);
+  std::vector<std::pair<string_with_kind, size_t>> to_vector() const;
   size_t size() const { return _m.size(); }
 };
 
@@ -35,20 +36,24 @@ class counter_map
 class CharNgramCounter {
  private:
   vocab_map vocab;
-  const unsigned int n;
+  unsigned int min_n;
+  unsigned int max_n;
 
   size_t result_array_len;
+  std::vector<string_with_kind>* prefixes;
   std::vector<npy_int64>* values;
   index_vector* indices;
   index_vector* indptr;
 
   void prepare_vocab();
+  bool need_expand_counts() const;
 
  public:
-  CharNgramCounter(const unsigned int n);
+  CharNgramCounter(const unsigned int min_n, const unsigned int max_n);
   ~CharNgramCounter();
 
   void process_one(PyUnicodeObject* obj);
+  void expand_counts();
   PyObject* get_values();
   PyObject* get_indices();
   PyObject* get_indptr();

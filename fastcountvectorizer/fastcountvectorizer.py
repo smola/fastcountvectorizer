@@ -42,7 +42,6 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-import itertools
 import numbers
 from array import array
 from collections import defaultdict
@@ -242,25 +241,35 @@ class FastCountVectorizer(BaseEstimator):
             )
 
     def _count_vocab(self, docs):
-        vocab = defaultdict()
-        vocab.default_factory = vocab.__len__
-
+        vocab = {}
         min_ngram, max_ngram = self.ngram_range
-        vocab, counts = self._count_vocab_from_docs(
-            n=max_ngram, docs=docs, vocab=vocab,
+
+        counter = _CharNgramCounter(min_ngram, max_ngram, vocab)
+        for doc in docs:
+            counter.process(doc)
+        counter.postprocess()
+        values, indices, indptr = counter.get_result()
+        del counter
+
+        if indptr[-1] > np.iinfo(np.int32).max:  # = 2**31 - 1
+            if _IS_32BIT:
+                raise ValueError(
+                    (
+                        "sparse CSR array has {} non-zero "
+                        "elements and requires 64 bit indexing, "
+                        "which is unsupported with 32 bit Python."
+                    ).format(indptr[-1])
+                )
+
+        counts = sp.csr_matrix(
+            (values, indices, indptr),
+            shape=(len(indptr) - 1, len(vocab)),
+            dtype=self.dtype,
         )
 
-        if min_ngram == max_ngram:
-            return dict(vocab), counts
+        counts.sort_indices()
 
-        counts = _expand_counts(vocab, counts, min_ngram, max_ngram)
-        prefix_counts = _prefix_counts(
-            self._analyze_fixed, vocab, docs, min_ngram, max_ngram
-        )
-        counts.resize(prefix_counts.shape)
-        counts += prefix_counts
-
-        return dict(vocab), counts.astype(self.dtype)
+        return vocab, counts.astype(self.dtype, copy=False)
 
     def _count_fixed_vocab(self, raw_documents, vocab):
         values = array("i")
@@ -310,9 +319,10 @@ class FastCountVectorizer(BaseEstimator):
         return s
 
     def _count_vocab_from_docs(self, n, docs, vocab):
-        counter = _CharNgramCounter(n, vocab)
+        counter = _CharNgramCounter(self.ngram_range[0], self.ngram_range[1], vocab)
         for doc in docs:
             counter.process(doc)
+        counter.postprocess()
         values, indices, indptr = counter.get_result()
         del counter
 
@@ -408,47 +418,3 @@ class FastCountVectorizer(BaseEstimator):
         if n == 1 and not isinstance(doc, bytes):
             return iter(doc)
         return (doc[i : i + n] for i in range(0, len(doc) - n + 1))
-
-
-def _expand_counts(vocab, counts, min_ngram, max_ngram):
-    initial_len = len(vocab)
-
-    i_ = array("i")
-    j_ = array("i")
-    for term, idx in list(vocab.items()):
-        j_.append(idx)
-        i_.append(idx)
-        for n in range(min_ngram, max_ngram):
-            new_term = term[-n:]
-            new_idx = vocab[new_term]
-            j_.append(new_idx)
-            i_.append(idx)
-
-    n_iter = max_ngram - min_ngram + 1
-    j_ = np.frombuffer(j_, dtype=np.intc)
-    i_ = np.frombuffer(i_, dtype=np.intc)
-    data = np.ones(initial_len * n_iter)
-
-    modifier = sp.coo_matrix(
-        (data, (i_, j_)), shape=(counts.shape[1], len(vocab)), dtype=np.int64,
-    )
-
-    return counts * modifier
-
-
-def _prefix_counts(analyzer, vocab, docs, min_ngram, max_ngram):
-    i_ = array("i")
-    j_ = array("i")
-    for row, doc in enumerate(docs):
-        for n in range(min_ngram, max_ngram):
-            for term in itertools.islice(analyzer(doc, n), max_ngram - n):
-                idx = vocab[term]
-                i_.append(row)
-                j_.append(idx)
-
-    i_ = np.frombuffer(i_, dtype=np.intc)
-    j_ = np.frombuffer(j_, dtype=np.intc)
-    values = np.ones(len(i_), dtype=np.intc)
-    return sp.coo_matrix(
-        (values, (i_, j_)), shape=(len(docs), len(vocab)), dtype=np.int64,
-    ).tocsr()

@@ -56,15 +56,16 @@ TEST_CASE("vocab_map error") {
   Py_DECREF(bad_dict);
 }
 
-TEST_CASE("CharNgramCounter(1)") {
+TEST_CASE("CharNgramCounter(1, 1)") {
   initialize_python();
 
-  CharNgramCounter counter(1);
+  CharNgramCounter counter(1, 1);
   PyObject* obj = PyUnicode_FromString("abcde");
   REQUIRE(obj != NULL);
   PyObject* vocab = PyDict_New();
   REQUIRE(vocab != NULL);
   counter.process_one((PyUnicodeObject*)obj);
+  counter.expand_counts();
   REQUIRE(counter.copy_vocab(vocab) == 0);
   REQUIRE(PyDict_Size(vocab) == 5);
   PyObject* indptr = counter.get_indptr();
@@ -78,12 +79,25 @@ TEST_CASE("CharNgramCounter(1)") {
   Py_XDECREF(indptr);
   Py_XDECREF(obj);
   Py_XDECREF(vocab);
+
+  CharNgramCounter counter2 = CharNgramCounter(1, 1);
+  obj = PyUnicode_FromString("abcde");
+  REQUIRE(obj != NULL);
+  vocab = PyDict_New();
+  REQUIRE(vocab != NULL);
+  counter2.process_one((PyUnicodeObject*)obj);
+  counter2.process_one((PyUnicodeObject*)obj);
+  counter2.expand_counts();
+  REQUIRE(counter2.copy_vocab(vocab) == 0);
+  REQUIRE(PyDict_Size(vocab) == 5);
+  Py_XDECREF(obj);
+  Py_XDECREF(vocab);
 }
 
-TEST_CASE("CharNgramCounter(1) UCS2 simple") {
+TEST_CASE("CharNgramCounter(1, 1) UCS2 simple") {
   initialize_python();
 
-  CharNgramCounter counter(1);
+  CharNgramCounter counter(1, 1);
 #ifdef WORDS_BIG_ENDIAN
   PyObject* obj = PyUnicode_FromKindAndData(2, "\0a\0b\0c\0d\0e", 5);
 #else
@@ -108,10 +122,10 @@ TEST_CASE("CharNgramCounter(1) UCS2 simple") {
   Py_XDECREF(vocab);
 }
 
-TEST_CASE("CharNgramCounter(1) UCS2") {
+TEST_CASE("CharNgramCounter(1, 1) UCS2") {
   initialize_python();
 
-  CharNgramCounter counter(1);
+  CharNgramCounter counter(1, 1);
 #ifdef WORDS_BIG_ENDIAN
   PyObject* obj = PyUnicode_FromKindAndData(2, "\1a\1b\1c\1d\1e", 5);
 #else
@@ -136,10 +150,10 @@ TEST_CASE("CharNgramCounter(1) UCS2") {
   Py_XDECREF(vocab);
 }
 
-TEST_CASE("CharNgramCounter(1) UCS4 simple") {
+TEST_CASE("CharNgramCounter(1, 1) UCS4 simple") {
   initialize_python();
 
-  CharNgramCounter counter(1);
+  CharNgramCounter counter(1, 1);
 #ifdef WORDS_BIG_ENDIAN
   PyObject* obj =
       PyUnicode_FromKindAndData(4, "\0\0\0a\0\0\0b\0\0\0c\0\0\0d\0\0\0e", 5);
@@ -163,5 +177,40 @@ TEST_CASE("CharNgramCounter(1) UCS4 simple") {
   Py_XDECREF(indices);
   Py_XDECREF(indptr);
   Py_XDECREF(obj);
+  Py_XDECREF(vocab);
+}
+
+TEST_CASE("CharNgramCounter(1, 2)") {
+  initialize_python();
+
+  CharNgramCounter counter(1, 2);
+  PyObject* obj = PyUnicode_FromString("abcde");
+  REQUIRE(obj != NULL);
+  PyObject* vocab = PyDict_New();
+  REQUIRE(vocab != NULL);
+  counter.process_one((PyUnicodeObject*)obj);
+  counter.expand_counts();
+  REQUIRE(counter.copy_vocab(vocab) == 0);
+  REQUIRE(PyDict_Size(vocab) == 9); /* 5 + 4 */
+  Py_XDECREF(obj);
+  Py_XDECREF(vocab);
+}
+
+TEST_CASE("CharNgramCounter(1, 3)") {
+  initialize_python();
+
+  CharNgramCounter counter(1, 3);
+
+  PyObject* obj = PyUnicode_FromString("abcde");
+  REQUIRE(obj != NULL);
+  counter.process_one((PyUnicodeObject*)obj);
+  Py_XDECREF(obj);
+
+  counter.expand_counts();
+
+  PyObject* vocab = PyDict_New();
+  REQUIRE(vocab != NULL);
+  REQUIRE(counter.copy_vocab(vocab) == 0);
+  REQUIRE(PyDict_Size(vocab) == 12); /* 5 + 4 + 3 */
   Py_XDECREF(vocab);
 }
