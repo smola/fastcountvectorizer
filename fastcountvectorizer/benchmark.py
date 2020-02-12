@@ -1,9 +1,11 @@
-from fastcountvectorizer import FastCountVectorizer
+import gc
+from timeit import Timer
+
+from memory_profiler import memory_usage
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.feature_extraction.text import CountVectorizer
-from memory_profiler import memory_usage
-from timeit import Timer
-import gc
+
+from fastcountvectorizer import FastCountVectorizer
 
 
 def run_countvectorizer_fit(ngram_range):

@@ -1,4 +1,9 @@
-include fastcountvectorizer/*.h
-include fastcountvectorizer/*.cpp
-graft fastcountvectorizer/thirdparty
+recursive-include fastcountvectorizer *.h
+recursive-include fastcountvectorizer *.hpp
+recursive-include fastcountvectorizer *.cpp
+global-include CMakeLists.txt
+global-include .clang-format
 include README.md
+include LICENSE
+include tox.ini
+prune .tox

@@ -1,7 +1,8 @@
-import setuptools
-from distutils.core import Extension
-import numpy
 from glob import glob
+
+import numpy
+import setuptools
+from setuptools import Extension
 
 ext_modules = [
     Extension(

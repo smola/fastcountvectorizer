@@ -42,15 +42,17 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+import itertools
+import numbers
 from array import array
 from collections import defaultdict
-import numbers
-import numpy as np
-import itertools
 from operator import itemgetter
+
+import numpy as np
 import scipy.sparse as sp
-from sklearn.utils import _IS_32BIT
 from sklearn.base import BaseEstimator
+from sklearn.utils import _IS_32BIT
+
 from ._ext import _CharNgramCounter
 
 
