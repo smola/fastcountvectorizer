@@ -53,10 +53,16 @@ jobs:
           architecture: 'x64'
       - run: pip install tox numpy
       - run: tox -e test
-      - run: sudo snap install cmake --classic
-      - run: /snap/cmake/current/bin/cmake --version
-      - run: /snap/cmake/current/bin/cmake .
-      - run: /snap/cmake/current/bin/cmake --build . --target run-tests
+      - name: update cmake
+        run: |
+          sudo apt-get update
+          sudo apt-get install apt-transport-https ca-certificates gnupg software-properties-common wget
+          wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add -
+          sudo apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic main'
+          sudo apt-get install cmake
+      - run: cmake --version
+      - run: cmake .
+      - run: cmake --build . --target run-tests
   test-windows-x64:
     runs-on: windows-latest
     strategy:
