@@ -12,5 +12,10 @@ void initialize_python() {
   }
   py_initialized = true;
   Py_Initialize();
-  PyInit__ext();
+  auto m = PyInit__ext();
+  if (PyErr_Occurred()) {
+    PyErr_Print();
+    assert(false);
+  }
+  assert(m != nullptr);
 }

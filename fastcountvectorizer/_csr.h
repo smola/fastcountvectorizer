@@ -48,6 +48,7 @@
 
 #define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL fcv_ARRAY_API
+#define NO_IMPORT_ARRAY
 #include "numpy/arrayobject.h"
 
 template <class T>
@@ -283,6 +284,89 @@ void csr_matmat_add_Bx1_diagprefix_fixed_nnz(
 
   csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
       nnz, n_row, n_col, Ap, Aj, Ax, Bj, nnz_per_row, Cp, Cj, Dp, Dj, Dx);
+}
+
+template <class T>
+inline size_t transform_indices_pass1(
+    const std::vector<npy_int64>& transformation, const std::vector<T>& Aj) {
+  size_t nnz = 0;
+  for (size_t i = 0; i < Aj.size(); i++) {
+    if (transformation[(size_t)Aj[i]] >= 0) {
+      nnz++;
+    }
+  }
+  return nnz;
+}
+
+inline size_t transform_indices_pass1(
+    const std::vector<npy_int64>& transformation, const index_vector& Aj) {
+  if (Aj.is_64()) {
+    return transform_indices_pass1(transformation, Aj.data64());
+  } else {
+    return transform_indices_pass1(transformation, Aj.data32());
+  }
+}
+
+template <class I, class T, class D>
+inline void transform_indices_pass2(
+    const size_t maxnnz, const std::vector<npy_int64>& transformation,
+    const std::vector<I>& Ap, const std::vector<I>& Aj,
+    const std::vector<D>& Ax, std::vector<T>& Bp, std::vector<T>& Bj,
+    std::vector<D>& Bx) {
+  size_t nnz = 0;
+  Bj.resize(maxnnz);
+  Bx.resize(maxnnz);
+  Bp.resize(Ap.size());
+  Bp[0] = 0;
+  for (size_t i = 0; i < Ap.size() - 1; i++) {
+    const auto ii_start = (size_t)Ap[i];
+    const auto ii_end = (size_t)Ap[i + 1];
+    for (size_t ii = ii_start; ii < ii_end; ii++) {
+      const I j = Aj[ii];
+      const npy_int64 new_j = transformation[(size_t)j];
+      if (new_j < 0) {
+        continue;
+      }
+      Bj[nnz] = (T)new_j;
+      Bx[nnz] = Ax[ii];
+      nnz++;
+    }
+    Bp[i + 1] = (T)nnz;
+  }
+}
+
+template <class D>
+inline void transform_indices_pass2(
+    const size_t maxnnz, const std::vector<npy_int64>& transformation,
+    const index_vector& Ap, const index_vector& Aj, const std::vector<D>& Ax,
+    index_vector& Bp, index_vector& Bj, std::vector<D>& Bx) {
+  const bool A64 = Aj.is_64();
+  const bool B64 = Bj.is_64();
+  if (A64 && B64) {
+    transform_indices_pass2(maxnnz, transformation, Ap.data64(), Aj.data64(),
+                            Ax, Bp.data64(), Bj.data64(), Bx);
+  } else if (A64 && !B64) {
+    transform_indices_pass2(maxnnz, transformation, Ap.data64(), Aj.data64(),
+                            Ax, Bp.data32(), Bj.data32(), Bx);
+  } else if (!A64 && B64) {
+    transform_indices_pass2(maxnnz, transformation, Ap.data32(), Aj.data32(),
+                            Ax, Bp.data64(), Bj.data64(), Bx);
+  } else {
+    transform_indices_pass2(maxnnz, transformation, Ap.data32(), Aj.data32(),
+                            Ax, Bp.data32(), Bj.data32(), Bx);
+  }
+}
+
+template <class I, class T>
+void transform_indices(const size_t maxidx,
+                       const std::vector<npy_int64>& transformation,
+                       const index_vector& Ap, const index_vector& Aj,
+                       const std::vector<I>& Ax, index_vector& Bp,
+                       index_vector& Bj, std::vector<T>& Bx) {
+  const size_t nnz = transform_indices_pass1(transformation, Aj);
+  Bp.set_max_value({maxidx, nnz, Ap.size()});
+  Bj.set_max_value({maxidx, nnz, Ap.size()});
+  transform_indices_pass2(nnz, transformation, Ap, Aj, Ax, Bp, Bj, Bx);
 }
 
 #endif  // FCV_CSR_H

@@ -42,6 +42,7 @@
 # OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
+import math
 import numbers
 from array import array
 from collections import defaultdict
@@ -174,12 +175,10 @@ class FastCountVectorizer(BaseEstimator):
         self._validate_params()
         self._validate_raw_documents(raw_documents)
         vocab, X = self._count_vocab(raw_documents)
-        X, vocab, stop_words = self._limit_features(X, vocab)
         X = self._sort_features(X, vocab)
         if self.binary:
             X.data.fill(1)
         self.vocabulary_ = vocab
-        self.stop_words_ = stop_words
         return X
 
     def transform(self, raw_documents):
@@ -244,10 +243,20 @@ class FastCountVectorizer(BaseEstimator):
         vocab = {}
         min_ngram, max_ngram = self.ngram_range
 
+        n_doc = 0
         counter = _CharNgramCounter(min_ngram, max_ngram, vocab)
         for doc in docs:
             counter.process(doc)
+            n_doc += 1
+
         counter.postprocess()
+
+        min_df, max_df = self._frequency_limits(n_doc)
+        if min_df > 1 or max_df < n_doc:
+            self.stop_words_ = counter.limit_features(min_df, max_df)
+        else:
+            self.stop_words_ = set()
+
         values, indices, indptr = counter.get_result()
         del counter
 
@@ -357,56 +366,16 @@ class FastCountVectorizer(BaseEstimator):
         X.indices = map_index.take(X.indices, mode="clip")
         return X
 
-    def _limit_features(self, X, vocabulary):
-        """Remove too rare or too common features.
-        Prune features that are non zero in more samples than high or less
-        documents than low, modifying the vocabulary, and restricting it to
-        at most the limit most frequent.
-        This does not prune samples with zero features.
-        """
+    def _frequency_limits(self, n_doc):
         min_df = self.min_df
         max_df = self.max_df
-        needs_limit = (
-            (isinstance(min_df, numbers.Integral) and min_df > 1) or min_df > 0.0
-        ) or ((isinstance(min_df, numbers.Integral) and max_df > 0) or max_df < 1.0)
 
-        if not needs_limit:
-            return X, vocabulary, set()
-
-        n_doc = X.shape[0]
-        high = max_df if isinstance(max_df, numbers.Integral) else max_df * n_doc
-        low = min_df if isinstance(min_df, numbers.Integral) else min_df * n_doc
-        if high < low:
+        max_df = max_df if isinstance(max_df, numbers.Integral) else max_df * n_doc
+        min_df = min_df if isinstance(min_df, numbers.Integral) else min_df * n_doc
+        if max_df < min_df:
             raise ValueError("max_df corresponds to < documents than min_df")
 
-        # Calculate a mask based on document frequencies
-        dfs = self._document_frequency(X)
-        mask = np.ones(len(dfs), dtype=bool)
-        if high is not None:
-            mask &= dfs <= high
-        if low is not None:
-            mask &= dfs >= low
-
-        new_indices = np.cumsum(mask) - 1  # maps old indices to new
-        removed_terms = set()
-        for term, old_index in vocabulary.items():
-            if not mask[old_index]:
-                removed_terms.add(term)
-        vocabulary = {t: new_indices[i] for t, i in vocabulary.items() if mask[i]}
-        kept_indices = np.where(mask)[0]
-        if len(kept_indices) == 0:
-            raise ValueError(
-                "After pruning, no terms remain. Try a lower"
-                " min_df or a higher max_df."
-            )
-        return X[:, kept_indices], vocabulary, removed_terms
-
-    def _document_frequency(self, X):
-        """Count the number of non-zero values for each feature in sparse X."""
-        if sp.isspmatrix_csr(X):
-            return np.bincount(X.indices, minlength=X.shape[1])
-        else:
-            return np.diff(X.indptr)
+        return int(math.ceil(min_df)), int(max_df)
 
     def _analyze(self, doc):
         doc_len = len(doc)
