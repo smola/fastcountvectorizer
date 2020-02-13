@@ -1,8 +1,13 @@
+import platform
 from glob import glob
 
 import numpy
 import setuptools
 from setuptools import Extension
+
+extra_compile_args = []
+if platform.system() in ["Linux", "Darwin"]:
+    extra_compile_args += ["-Wall", "-Wextra"]
 
 ext_modules = [
     Extension(
@@ -12,6 +17,7 @@ ext_modules = [
         + glob("fastcountvectorizer/thirdparty/**/*.*", recursive=True),
         include_dirs=[numpy.get_include(), "fastcountvectorizer/thirdparty"],
         language="c++",
+        extra_compile_args=extra_compile_args,
     )
 ]
 
