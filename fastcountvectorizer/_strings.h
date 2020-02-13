@@ -23,6 +23,7 @@ class string_with_kind : public std::string {
   static string_with_kind compact(const char* str, size_t size, uint8_t kind);
   bool operator==(const string_with_kind& other) const;
   bool operator!=(const string_with_kind& other) const;
+  bool operator<(const string_with_kind& other) const;
   py::str toPyObject() const;
   string_with_kind suffix() const;
 };

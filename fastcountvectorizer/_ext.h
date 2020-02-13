@@ -62,6 +62,7 @@ class CharNgramCounter {
   void process(const py::str& obj);
   void expand_counts();
   py::set limit_features(std::size_t min_df, std::size_t max_df);
+  void sort_features();
   py::array get_values();
   py::array get_indices();
   py::array get_indptr();
