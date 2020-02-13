@@ -1,7 +1,6 @@
 import platform
 from glob import glob
 
-import numpy
 import setuptools
 from setuptools import Extension
 
@@ -9,13 +8,22 @@ extra_compile_args = []
 if platform.system() in ["Linux", "Darwin"]:
     extra_compile_args += ["-Wall", "-Wextra"]
 
+
+class get_numpy_include:
+    # hack to evaluate numpy include lazily, once it is already installed
+    def __str__(self):
+        import numpy
+
+        return numpy.get_include()
+
+
 ext_modules = [
     Extension(
         "fastcountvectorizer._ext",
         sources=glob("fastcountvectorizer/*.cpp"),
         depends=glob("fastcountvectorizer/*.h")
         + glob("fastcountvectorizer/thirdparty/**/*.*", recursive=True),
-        include_dirs=[numpy.get_include(), "fastcountvectorizer/thirdparty"],
+        include_dirs=[get_numpy_include(), "fastcountvectorizer/thirdparty"],
         language="c++",
         extra_compile_args=extra_compile_args,
     )
