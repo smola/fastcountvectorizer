@@ -2,12 +2,14 @@
 #ifndef FCV_STRINGS_H
 #define FCV_STRINGS_H
 
-#include <string>
+#include <pybind11/pybind11.h>
 
-#include "Python.h"
+#include <string>
 
 #define XXH_INLINE_ALL
 #include "xxhash.h"
+
+namespace py = pybind11;
 
 class string_with_kind : public std::string {
  private:
@@ -18,11 +20,10 @@ class string_with_kind : public std::string {
       : std::string(str, size), _kind(kind) {}
   uint8_t kind() const { return _kind; }
 
-  static string_with_kind compact(const char* str, const size_t size,
-                                  const uint8_t kind);
+  static string_with_kind compact(const char* str, size_t size, uint8_t kind);
   bool operator==(const string_with_kind& other) const;
   bool operator!=(const string_with_kind& other) const;
-  PyObject* toPyObject() const;
+  py::str toPyObject() const;
   string_with_kind suffix() const;
 };
 

@@ -11,12 +11,12 @@ if platform.system() == "Darwin":
     extra_compile_args += ["-std=c++11", "-stdlib=libc++"]
 
 
-class get_numpy_include:
-    # hack to evaluate numpy include lazily, once it is already installed
+class get_pybind11_include:
+    # hack to evaluate pybind11 includes lazily, once they are installed
     def __str__(self):
-        import numpy
+        import pybind11
 
-        return numpy.get_include()
+        return pybind11.get_include()
 
 
 ext_modules = [
@@ -25,7 +25,7 @@ ext_modules = [
         sources=glob("fastcountvectorizer/*.cpp"),
         depends=glob("fastcountvectorizer/*.h")
         + glob("fastcountvectorizer/thirdparty/**/*.*", recursive=True),
-        include_dirs=[get_numpy_include(), "fastcountvectorizer/thirdparty"],
+        include_dirs=[get_pybind11_include(), "fastcountvectorizer/thirdparty"],
         language="c++",
         extra_compile_args=extra_compile_args,
     )
@@ -50,8 +50,8 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.5",
-    install_requires=["scikit-learn", "numpy"],
-    setup_requires=["numpy"],
+    install_requires=["scikit-learn", "numpy", "pybind11"],
+    setup_requires=["pybind11"],
     tests_require=["pytest"],
     ext_modules=ext_modules,
 )

@@ -2,12 +2,13 @@
 #ifndef FCV_SPUTILS_H
 #define FCV_SPUTILS_H
 
+#include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+
 #include <cstdint>
 #include <vector>
 
-// vector_to_numpy converts a std::vector to a numpy.array.
-template <typename I>
-PyObject* vector_to_numpy(const std::vector<I>& v);
+namespace py = pybind11;
 
 // index_vector is an integer vector that uses initially int32_t and switches
 // dynamically to int32_t when needed. This is useful for arrays to be used as
@@ -31,7 +32,7 @@ class index_vector {
   void reserve(std::size_t n);
   void push_back(std::size_t n);
   std::size_t size() const;
-  PyObject* to_numpy() const;
+  py::array to_numpy() const;
   bool is_64() const { return use_64; }
   std::vector<std::int32_t>& data32() { return *v32; }
   const std::vector<std::int32_t>& data32() const { return *v32; }

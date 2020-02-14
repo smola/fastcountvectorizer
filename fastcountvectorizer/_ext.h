@@ -5,10 +5,14 @@
 #include <cstdint>
 #include <vector>
 
-#include "Python.h"
+#define PY_SSIZE_T_CLEAN
+#include <pybind11/pybind11.h>
+
 #include "_sputils.h"
 #include "_strings.h"
 #include "tsl/sparse_map.h"
+
+namespace py = pybind11;
 
 class vocab_map {
  private:
@@ -16,7 +20,7 @@ class vocab_map {
 
  public:
   size_t operator[](const string_with_kind& k);
-  int flush_to(PyObject* dest_dict);
+  py::dict flush_to_pydict();
   std::vector<std::pair<string_with_kind, size_t>> to_vector() const;
   size_t size() const { return _m.size(); }
   void erase(const string_with_kind& k) { _m.erase(k); }
@@ -52,16 +56,17 @@ class CharNgramCounter {
   std::vector<size_t> document_frequencies() const;
 
  public:
-  CharNgramCounter(const unsigned int min_n, const unsigned int max_n);
+  CharNgramCounter(unsigned int min_n, unsigned int max_n);
   ~CharNgramCounter();
 
-  void process_one(PyUnicodeObject* obj);
+  void process(const py::str& obj);
   void expand_counts();
-  PyObject* limit_features(size_t min_df, size_t max_df);
-  PyObject* get_values();
-  PyObject* get_indices();
-  PyObject* get_indptr();
-  int copy_vocab(PyObject* dest_vocab);
+  py::set limit_features(std::size_t min_df, std::size_t max_df);
+  py::array get_values();
+  py::array get_indices();
+  py::array get_indptr();
+  py::tuple get_result();
+  py::dict get_vocab();
 };
 
 #endif  // FCV_EXT_H

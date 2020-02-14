@@ -25,6 +25,20 @@ set(Python3_FIND_FRAMEWORK LAST)
 
 find_package(Python3 COMPONENTS Interpreter Development NumPy)
 
+execute_process(
+        COMMAND ${Python3_EXECUTABLE} -c import\ pybind11\;print\(pybind11.get_include\(\)\)
+        OUTPUT_VARIABLE pybind11_INCLUDE_DIRS
+        RESULT_VARIABLE _pybind11_STATUS
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+if(_pybind11_STATUS EQUAL "0")
+    message(STATUS "Found pybind11: ${pybind11_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "pybind11 not found")
+endif()
+unset(_pybind11_STATUS)
+
+
+
 add_subdirectory(fastcountvectorizer)
 add_subdirectory(fastcountvectorizer/tests)
 
