@@ -49,6 +49,7 @@ setuptools.setup(
     ],
     python_requires=">=3.5",
     install_requires=["scikit-learn", "numpy"],
+    setup_requires=["numpy"],
     tests_require=["pytest"],
     ext_modules=ext_modules,
 )
