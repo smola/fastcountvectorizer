@@ -23,12 +23,12 @@ class vocab_map {
   void set_index(const string_with_kind& k, const size_t v) { _m[k] = v; }
 };
 
-class counter_map
-    : public tsl::sparse_map<const char*, npy_int64, fixed_length_string_hash,
-                             fixed_length_string_equal_to> {
+class counter_map : public tsl::sparse_map<const char*, std::int64_t,
+                                           fixed_length_string_hash,
+                                           fixed_length_string_equal_to> {
  public:
   explicit counter_map(const size_t str_length)
-      : tsl::sparse_map<const char*, npy_int64, fixed_length_string_hash,
+      : tsl::sparse_map<const char*, std::int64_t, fixed_length_string_hash,
                         fixed_length_string_equal_to>(
             0, fixed_length_string_hash(str_length),
             fixed_length_string_equal_to(str_length)) {}
@@ -41,9 +41,9 @@ class CharNgramCounter {
   unsigned int min_n;
   unsigned int max_n;
 
-  size_t result_array_len;
+  std::size_t result_array_len;
   std::vector<string_with_kind>* prefixes;
-  std::vector<npy_int64>* values;
+  std::vector<std::int64_t>* values;
   index_vector* indices;
   index_vector* indptr;
 

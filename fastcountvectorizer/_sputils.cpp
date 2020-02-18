@@ -1,4 +1,5 @@
 
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -6,35 +7,37 @@
 #define NO_IMPORT_ARRAY
 #define PY_ARRAY_UNIQUE_SYMBOL fcv_ARRAY_API
 #include <numpy/arrayobject.h>
-#include <numpy/ndarraytypes.h>
 
 #include "_sputils.h"
 
 template <typename I>
 PyObject* _vector_to_numpy(const std::vector<I>& v, const int typenum) {
   PyObject* a;
-  const size_t size = v.size();
-  npy_intp shape[1];
-  shape[0] = (npy_intp)size;
+  const std::size_t size = v.size();
+  std::intptr_t shape[1];
+  shape[0] = (std::intptr_t)size;
   a = PyArray_SimpleNew(1, shape, typenum);
   memcpy(PyArray_DATA((PyArrayObject*)a), v.data(), size * sizeof(I));
   return a;
 }
 
 template <>
-PyObject* vector_to_numpy<npy_int32>(const std::vector<npy_int32>& v) {
-  return _vector_to_numpy<npy_int32>(v, NPY_INT32);
+PyObject* vector_to_numpy<std::int32_t>(const std::vector<std::int32_t>& v) {
+  return _vector_to_numpy<std::int32_t>(v, NPY_INT32);
 }
 
 template <>
-PyObject* vector_to_numpy<npy_int64>(const std::vector<npy_int64>& v) {
-  return _vector_to_numpy<npy_int64>(v, NPY_INT64);
+PyObject* vector_to_numpy<std::int64_t>(const std::vector<std::int64_t>& v) {
+  return _vector_to_numpy<std::int64_t>(v, NPY_INT64);
 }
 
-bool needs_npy_int64(const size_t val) { return val > NPY_MAX_INT32; }
+template <class T>
+bool needs_int64(const T val) {
+  return val > std::numeric_limits<std::int32_t>::max();
+}
 
 index_vector::index_vector(const bool use_64) : use_64(use_64) {
-  v32 = new std::vector<npy_int32>();
+  v32 = new std::vector<std::int32_t>();
   v64 = nullptr;
 }
 
@@ -46,23 +49,23 @@ index_vector::~index_vector() {
 }
 
 void index_vector::set_max_value(size_t val) {
-#if NPY_BITSOF_INTP == 64
-  if (!use_64 && needs_npy_int64(val)) {
-    if (val > NPY_MAX_INT64) {
+#if SIZEOF_SIZE_T == 8
+  if (!use_64 && needs_int64(val)) {
+    if (val > std::numeric_limits<std::int64_t>::max()) {
       throw std::overflow_error(
           "too many values: 64 bits indexing not supported on 32 bits "
           "architectures");
     }
     use_64 = true;
-    v64 = new std::vector<npy_int64>(v32->size());
-    for (size_t i = 0; i < v32->size(); i++) {
+    v64 = new std::vector<std::int64_t>(v32->size());
+    for (std::size_t i = 0; i < v32->size(); i++) {
       (*v64)[i] = (*v32)[i];
     }
     delete v32;
     v32 = nullptr;
   }
 #else
-  if (needs_npy_int64(val)) {
+  if (needs_int64(val)) {
     throw std::overflow_error(
         "too many values: 64 bits indexing not supported on 32 bits "
         "architectures");
@@ -84,19 +87,19 @@ void index_vector::reserve(const size_t n) {
   }
 }
 
-void index_vector::push_back(const size_t n) {
+void index_vector::push_back(const std::size_t n) {
   if (use_64) {
-    if (n > NPY_MAX_INT64) {
+    if (n > std::numeric_limits<std::int64_t>::max()) {
       throw std::overflow_error("too many elements");
     }
-    v64->push_back((npy_int64)n);
+    v64->push_back((std::int64_t)n);
   } else {
-    assert(n <= NPY_MAX_INT32);
-    v32->push_back((npy_int32)n);
+    assert(n <= std::numeric_limits<std::int32_t>::max());
+    v32->push_back((std::int32_t)n);
   }
 }
 
-size_t index_vector::size() const {
+std::size_t index_vector::size() const {
   if (use_64) {
     return v64->size();
   } else {
@@ -104,11 +107,11 @@ size_t index_vector::size() const {
   }
 }
 
-npy_int64 index_vector::operator[](const size_t i) const {
+std::int64_t index_vector::operator[](const std::size_t i) const {
   if (use_64) {
     return (*v64)[i];
   } else {
-    return (npy_int64)(*v32)[i];
+    return (std::int64_t)(*v32)[i];
   }
 }
 

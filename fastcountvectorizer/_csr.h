@@ -46,11 +46,6 @@
 
 #include "_sputils.h"
 
-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
-#define PY_ARRAY_UNIQUE_SYMBOL fcv_ARRAY_API
-#define NO_IMPORT_ARRAY
-#include "numpy/arrayobject.h"
-
 template <class T>
 constexpr void assert_valid_index_type() {
   static_assert(std::is_integral<T>(), "index must be integral");
@@ -90,24 +85,24 @@ size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
   assert(n_row <= n_col);
 
   // method that uses O(n) temp storage
-  std::vector<size_t> mask(n_col - n_row, (size_t)-1);
+  std::vector<std::size_t> mask(n_col - n_row, (std::size_t)-1);
 
-  size_t nnz = 0;
+  std::size_t nnz = 0;
   for (size_t i = 0; i < n_row; i++) {
     size_t row_nnz = 0;
 
-    size_t jj_start = (size_t)Ap[i];
-    size_t jj_end = (size_t)Ap[i + 1];
+    std::size_t jj_start = (size_t)Ap[i];
+    std::size_t jj_end = (size_t)Ap[i + 1];
 
     // Because B has the diagonal prefix, D left side contains A.
     row_nnz += jj_end - jj_start;
 
     // A*B
-    for (size_t jj = jj_start; jj < jj_end; jj++) {
-      size_t j = (size_t)Aj[jj];
+    for (std::size_t jj = jj_start; jj < jj_end; jj++) {
+      std::size_t j = (size_t)Aj[jj];
 
-      for (size_t kk = j * nnz_per_row; kk < (j + 1) * nnz_per_row; kk++) {
-        size_t k = (size_t)Bj[kk] - n_row;
+      for (std::size_t kk = j * nnz_per_row; kk < (j + 1) * nnz_per_row; kk++) {
+        std::size_t k = (std::size_t)Bj[kk] - n_row;
         if (mask[k] != i) {
           mask[k] = i;
           row_nnz++;
@@ -116,10 +111,10 @@ size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
     }
 
     // +C
-    jj_start = (size_t)Cp[i];
-    jj_end = (size_t)Cp[i + 1];
-    for (size_t jj = jj_start; jj < jj_end; jj++) {
-      size_t j = (size_t)Cj[jj] - n_row;
+    jj_start = (std::size_t)Cp[i];
+    jj_end = (std::size_t)Cp[i + 1];
+    for (std::size_t jj = jj_start; jj < jj_end; jj++) {
+      std::size_t j = (std::size_t)Cj[jj] - n_row;
       assert(j < mask.size());  // DEBUG
       if (mask[j] != i) {
         mask[j] = i;
@@ -129,7 +124,7 @@ size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
 
     size_t next_nnz = nnz + row_nnz;
 
-    if (row_nnz > NPY_MAX_INTP - nnz) {
+    if (row_nnz > std::numeric_limits<intptr_t>::max() - nnz) {
       /*
        * Index overflowed. Note that row_nnz <= n_col and cannot overflow
        */
@@ -225,11 +220,12 @@ void csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
 }
 
 template <class TB, class TC>
-size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
-    const size_t n_row, const size_t n_col, const index_vector& Ap,
-    const index_vector& Aj, const std::vector<TB>& Bj, const size_t nnz_per_row,
-    const std::vector<TC>& Cp, const std::vector<TC>& Cj) {
-#if NPY_BITSOF_INTP == 64
+std::size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
+    const std::size_t n_row, const std::size_t n_col, const index_vector& Ap,
+    const index_vector& Aj, const std::vector<TB>& Bj,
+    const std::size_t nnz_per_row, const std::vector<TC>& Cp,
+    const std::vector<TC>& Cj) {
+#if SIZEOF_SIZE_T == 8
   if (Aj.is_64()) {
     return csr_matmat_add_pass1_diagprefix_fixed_nnz(
         n_row, n_col, Ap.data64(), Aj.data64(), Bj, nnz_per_row, Cp, Cj);
@@ -241,12 +237,12 @@ size_t csr_matmat_add_pass1_diagprefix_fixed_nnz(
 
 template <class TAD, class TB, class TC, class TDD>
 void csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
-    const size_t nnz, const size_t n_row, const size_t n_col,
+    const std::size_t nnz, const std::size_t n_row, const std::size_t n_col,
     const index_vector& Ap, const index_vector& Aj, const std::vector<TAD>& Ax,
     const std::vector<TB>& Bj, const size_t nnz_per_row,
     const std::vector<TC>& Cp, const std::vector<TC>& Cj, index_vector& Dp,
     index_vector& Dj, std::vector<TDD>& Dx) {
-#if NPY_BITSOF_INTP == 64
+#if SIZEOF_SIZE_T == 8
   const bool A64 = Aj.is_64();
   const bool D64 = Dj.is_64();
   if (A64 && D64) {
@@ -275,9 +271,9 @@ void csr_matmat_add_pass2_Bx1_diagprefix_fixed_nnz(
 
 template <class TAD, class TB, class TC, class TDD>
 void csr_matmat_add_Bx1_diagprefix_fixed_nnz(
-    const size_t n_row, const size_t n_col, const index_vector& Ap,
+    const std::size_t n_row, const std::size_t n_col, const index_vector& Ap,
     const index_vector& Aj, const std::vector<TAD>& Ax,
-    const std::vector<TB>& Bj, const size_t nnz_per_row,
+    const std::vector<TB>& Bj, const std::size_t nnz_per_row,
     const std::vector<TC>& Cp, const std::vector<TC>& Cj, index_vector& Dp,
     index_vector& Dj, std::vector<TDD>& Dx) {
   auto nnz = csr_matmat_add_pass1_diagprefix_fixed_nnz(n_row, n_col, Ap, Aj, Bj,
@@ -291,20 +287,20 @@ void csr_matmat_add_Bx1_diagprefix_fixed_nnz(
 }
 
 template <class T>
-inline size_t transform_indices_pass1(
-    const std::vector<npy_int64>& transformation, const std::vector<T>& Aj) {
-  size_t nnz = 0;
-  for (size_t i = 0; i < Aj.size(); i++) {
-    if (transformation[(size_t)Aj[i]] >= 0) {
+inline std::size_t transform_indices_pass1(
+    const std::vector<std::int64_t>& transformation, const std::vector<T>& Aj) {
+  std::size_t nnz = 0;
+  for (std::size_t i = 0; i < Aj.size(); i++) {
+    if (transformation[(std::size_t)Aj[i]] >= 0) {
       nnz++;
     }
   }
   return nnz;
 }
 
-inline size_t transform_indices_pass1(
-    const std::vector<npy_int64>& transformation, const index_vector& Aj) {
-#if NPY_BITSOF_INTP == 64
+inline std::size_t transform_indices_pass1(
+    const std::vector<std::int64_t>& transformation, const index_vector& Aj) {
+#if SIZEOF_SIZE_T == 8
   if (Aj.is_64()) {
     return transform_indices_pass1(transformation, Aj.data64());
   }
@@ -314,21 +310,21 @@ inline size_t transform_indices_pass1(
 
 template <class I, class T, class D>
 inline void transform_indices_pass2(
-    const size_t maxnnz, const std::vector<npy_int64>& transformation,
+    const std::size_t maxnnz, const std::vector<std::int64_t>& transformation,
     const std::vector<I>& Ap, const std::vector<I>& Aj,
     const std::vector<D>& Ax, std::vector<T>& Bp, std::vector<T>& Bj,
     std::vector<D>& Bx) {
-  size_t nnz = 0;
+  std::size_t nnz = 0;
   Bj.resize(maxnnz);
   Bx.resize(maxnnz);
   Bp.resize(Ap.size());
   Bp[0] = 0;
-  for (size_t i = 0; i < Ap.size() - 1; i++) {
-    const auto ii_start = (size_t)Ap[i];
-    const auto ii_end = (size_t)Ap[i + 1];
-    for (size_t ii = ii_start; ii < ii_end; ii++) {
-      const I j = Aj[ii];
-      const npy_int64 new_j = transformation[(size_t)j];
+  for (std::size_t i = 0; i < Ap.size() - 1; i++) {
+    const auto ii_start = (std::size_t)Ap[i];
+    const auto ii_end = (std::size_t)Ap[i + 1];
+    for (std::size_t ii = ii_start; ii < ii_end; ii++) {
+      const auto j = (std::size_t)Aj[ii];
+      const std::int64_t new_j = transformation[j];
       if (new_j < 0) {
         continue;
       }
@@ -342,10 +338,10 @@ inline void transform_indices_pass2(
 
 template <class D>
 inline void transform_indices_pass2(
-    const size_t maxnnz, const std::vector<npy_int64>& transformation,
+    const std::size_t maxnnz, const std::vector<std::int64_t>& transformation,
     const index_vector& Ap, const index_vector& Aj, const std::vector<D>& Ax,
     index_vector& Bp, index_vector& Bj, std::vector<D>& Bx) {
-#if NPY_BITSOF_INTP == 64
+#if SIZEOF_SIZE_T == 8
   const bool A64 = Aj.is_64();
   const bool B64 = Bj.is_64();
   if (A64 && B64) {
@@ -368,12 +364,12 @@ inline void transform_indices_pass2(
 }
 
 template <class I, class T>
-void transform_indices(const size_t maxidx,
-                       const std::vector<npy_int64>& transformation,
+void transform_indices(const std::size_t maxidx,
+                       const std::vector<std::int64_t>& transformation,
                        const index_vector& Ap, const index_vector& Aj,
                        const std::vector<I>& Ax, index_vector& Bp,
                        index_vector& Bj, std::vector<T>& Bx) {
-  const size_t nnz = transform_indices_pass1(transformation, Aj);
+  const std::size_t nnz = transform_indices_pass1(transformation, Aj);
   Bp.set_max_value({maxidx, nnz, Ap.size()});
   Bj.set_max_value({maxidx, nnz, Ap.size()});
   transform_indices_pass2(nnz, transformation, Ap, Aj, Ax, Bp, Bj, Bx);
