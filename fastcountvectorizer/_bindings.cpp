@@ -14,6 +14,7 @@ PYBIND11_MODULE(_ext, m) {
       .def("expand_counts", &CharNgramCounter::expand_counts)
       .def("limit_features", &CharNgramCounter::limit_features,
            py::arg("min_df"), py::arg("max_df"))
+      .def("sort_features", &CharNgramCounter::sort_features)
       .def("get_vocab", &CharNgramCounter::get_vocab,
            py::return_value_policy::move)
       .def("get_result", &CharNgramCounter::get_result,

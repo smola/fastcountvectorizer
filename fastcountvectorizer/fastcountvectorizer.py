@@ -175,7 +175,6 @@ class FastCountVectorizer(BaseEstimator):
         self._validate_params()
         self._validate_raw_documents(raw_documents)
         vocab, X = self._count_vocab(raw_documents)
-        X = self._sort_features(X, vocab)
         if self.binary:
             X.data.fill(1)
         self.vocabulary_ = vocab
@@ -255,6 +254,7 @@ class FastCountVectorizer(BaseEstimator):
             self.stop_words_ = counter.limit_features(min_df, max_df)
         else:
             self.stop_words_ = set()
+            counter.sort_features()
 
         vocab = counter.get_vocab()
         values, indices, indptr = counter.get_result()
@@ -352,19 +352,6 @@ class FastCountVectorizer(BaseEstimator):
         )
 
         return vocab, counts
-
-    def _sort_features(self, X, vocabulary):
-        """Sort features by name
-        Returns a reordered matrix and modifies the vocabulary in place
-        """
-        sorted_features = sorted(vocabulary.items())
-        map_index = np.empty(len(sorted_features), dtype=X.indices.dtype)
-        for new_val, (term, old_val) in enumerate(sorted_features):
-            vocabulary[term] = new_val
-            map_index[old_val] = new_val
-
-        X.indices = map_index.take(X.indices, mode="clip")
-        return X
 
     def _frequency_limits(self, n_doc):
         min_df = self.min_df

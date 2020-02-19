@@ -245,6 +245,14 @@ std::vector<std::size_t> CharNgramCounter::document_frequencies() const {
   return docfreq;
 }
 
+template <class K, class V>
+struct _kv_less_k {
+  bool operator()(const std::pair<K, V>& lhs,
+                  const std::pair<K, V>& rhs) const {
+    return lhs.first < rhs.first;
+  }
+};
+
 py::set CharNgramCounter::limit_features(const std::size_t min_df,
                                          const std::size_t max_df) {
   py::set stop_words;
@@ -252,6 +260,10 @@ py::set CharNgramCounter::limit_features(const std::size_t min_df,
   std::vector<std::size_t> docfreq = document_frequencies();
   std::vector<std::pair<string_with_kind, std::size_t>> vocab_copy =
       vocab.to_vector();
+
+  std::sort(vocab_copy.begin(), vocab_copy.end(),
+            _kv_less_k<string_with_kind, size_t>());
+
   std::size_t new_index = 0;
   for (auto it = vocab_copy.begin(); it != vocab_copy.end(); it++) {
     const std::size_t old_idx = it->second;
@@ -280,6 +292,26 @@ py::set CharNgramCounter::limit_features(const std::size_t min_df,
   delete new_values;
 
   return stop_words;
+}
+
+void CharNgramCounter::sort_features() {
+  std::vector<std::int64_t> new_vocab_indices(vocab.size(), -1);
+  std::vector<std::pair<string_with_kind, size_t>> vocab_copy =
+      vocab.to_vector();
+
+  std::sort(vocab_copy.begin(), vocab_copy.end(),
+            _kv_less_k<string_with_kind, size_t>());
+
+  size_t new_index = 0;
+  for (auto it = vocab_copy.begin(); it != vocab_copy.end(); it++) {
+    const size_t old_idx = it->second;
+    vocab.set_index(it->first, new_index);
+    new_vocab_indices[old_idx] = (std::int64_t)new_index;
+    new_index++;
+  }
+
+  transform_indices(vocab.size(), new_vocab_indices, *indptr, *indices, *values,
+                    *indptr, *indices, *values);
 }
 
 py::array CharNgramCounter::get_values() {

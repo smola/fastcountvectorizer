@@ -42,6 +42,63 @@ TEST_CASE("string_with_kind compact") {
           make_string_with_kind<uint8_t>({1, 2, 3}));
 }
 
+TEST_CASE("string_with_kind less") {
+  for (int lk = 1; lk <= 4; lk *= 2) {
+    for (int rk = 1; rk <= 4; rk *= 2) {
+      REQUIRE_FALSE(string_with_kind("", 0, (uint8_t)lk) <
+                    string_with_kind("", 0, (uint8_t)rk));
+    }
+  }
+
+  std::vector<std::pair<string_with_kind, string_with_kind>> equal_pairs = {
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint8_t>({'a'})},
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint16_t>({'a'})},
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint32_t>({'a'})},
+      {make_string_with_kind<uint16_t>({'a'}),
+       make_string_with_kind<uint32_t>({'a'})},
+      {make_string_with_kind<uint32_t>({'a'}),
+       make_string_with_kind<uint32_t>({'a'})},
+  };
+
+  for (const auto& it : equal_pairs) {
+    REQUIRE_FALSE(it.first < it.second);
+    REQUIRE_FALSE(it.second < it.first);
+  }
+
+  std::vector<std::pair<string_with_kind, string_with_kind>> less_pairs = {
+      {make_string_with_kind<uint8_t>({}),
+       make_string_with_kind<uint8_t>({'a'})},
+      {make_string_with_kind<uint8_t>({}),
+       make_string_with_kind<uint16_t>({'a'})},
+      {make_string_with_kind<uint16_t>({}),
+       make_string_with_kind<uint16_t>({'a'})},
+      {make_string_with_kind<uint32_t>({}),
+       make_string_with_kind<uint16_t>({'a'})},
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint8_t>({'b'})},
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint8_t>({'a', 'a'})},
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint16_t>({1020})},
+      {make_string_with_kind<uint8_t>({'a'}),
+       make_string_with_kind<uint32_t>({70020})},
+      {make_string_with_kind<uint16_t>({1020}),
+       make_string_with_kind<uint16_t>({1021})},
+      {make_string_with_kind<uint16_t>({1020}),
+       make_string_with_kind<uint16_t>({1020, 1020})},
+      {make_string_with_kind<uint16_t>({1020}),
+       make_string_with_kind<uint32_t>({1020, 70020})},
+  };
+
+  for (const auto& it : less_pairs) {
+    REQUIRE(it.first < it.second);
+    REQUIRE_FALSE(it.second < it.first);
+  }
+}
+
 TEST_CASE("string_with_kind to PyObject") {
   py::str obj;
 
