@@ -1,12 +1,14 @@
 add_library(_ext STATIC
         _strings.cpp
         _sputils.cpp
-        _ext.cpp)
+        _ext.cpp
+        _bindings.cpp)
 
 target_link_libraries(_ext PRIVATE Python3::Module)
 target_link_libraries(_ext PUBLIC Python3::NumPy)
 
 target_include_directories(_ext PUBLIC ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer)
+target_include_directories(_ext PRIVATE ${pybind11_INCLUDE_DIRS})
 target_include_directories(_ext SYSTEM PRIVATE ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/thirdparty)
 
 # set warning levels

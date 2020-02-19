@@ -17167,6 +17167,11 @@ namespace Catch {
 #endif
 
 #ifdef CATCH_CONFIG_MAIN
+
+// hack to initialize python interpreter globally
+#include <pybind11/embed.h>
+#include <pybind11/numpy.h>
+
 // start catch_default_main.hpp
 
 #ifndef __OBJC__
@@ -17178,6 +17183,8 @@ extern "C" int wmain (int argc, wchar_t * argv[], wchar_t * []) {
 // Standard C/C++ main entry point
 int main (int argc, char * argv[]) {
 #endif
+    pybind11::scoped_interpreter guard{};
+    pybind11::detail::npy_api::get();
 
     return Catch::Session().run( argc, argv );
 }

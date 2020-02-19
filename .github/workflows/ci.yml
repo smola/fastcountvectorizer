@@ -52,8 +52,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.architecture }}
-      - run: pip install tox numpy
+      - run: pip install tox
       - run: tox -e test
+      - run: pip install pybind11 numpy
       - run: cmake --version
       - run: cmake .
       - run: cmake --build . --target run-tests
@@ -72,8 +73,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.architecture }}
-      - run: pip3 install tox numpy
+      - run: pip3 install tox
       - run: tox -e test
+      - run: pip install pybind11 numpy
       - run: cmake --version
       - run: cmake .
       - run: cmake --build . --target run-tests
@@ -101,7 +103,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.architecture }}
-      - run: pip install tox numpy
+      - run: pip install tox
       # see: https://github.com/actions/virtual-environments/issues/294
       #      and solutions used at https://github.com/python-pillow/Pillow
       #      explanations at https://stevedower.id.au/blog/building-for-python-3-5-part-two/
@@ -115,6 +117,7 @@ jobs:
           set PY_VCRUNTIME_REDIST=true
           set TOX_TESTENV_PASSENV=DISTUTILS_USE_SDK MSSdk INCLUDE LIB PY_VCRUNTIME_REDIST
           tox -e test
+      - run: pip install pybind11 numpy
       - run: cmake --version
       - run: cmake -A ${{ matrix.cmake-arch }} .
         # set Release build to avoid "fatal error LNK1104"

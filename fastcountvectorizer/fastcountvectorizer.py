@@ -240,16 +240,15 @@ class FastCountVectorizer(BaseEstimator):
             )
 
     def _count_vocab(self, docs):
-        vocab = {}
         min_ngram, max_ngram = self.ngram_range
 
         n_doc = 0
-        counter = _CharNgramCounter(min_ngram, max_ngram, vocab)
+        counter = _CharNgramCounter(min_ngram, max_ngram)
         for doc in docs:
             counter.process(doc)
             n_doc += 1
 
-        counter.postprocess()
+        counter.expand_counts()
 
         min_df, max_df = self._frequency_limits(n_doc)
         if min_df > 1 or max_df < n_doc:
@@ -257,6 +256,7 @@ class FastCountVectorizer(BaseEstimator):
         else:
             self.stop_words_ = set()
 
+        vocab = counter.get_vocab()
         values, indices, indptr = counter.get_result()
         del counter
 

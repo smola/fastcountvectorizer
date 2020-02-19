@@ -1,5 +1,4 @@
 add_executable(_ext_test
-        pyutils.cpp
         test__ext.cpp
         test__ext_impl.cpp
         test__strings_impl.cpp
@@ -19,6 +18,7 @@ target_link_libraries(_ext_test PRIVATE Python3::NumPy)
 set_target_properties(_ext_test PROPERTIES ENABLE_EXPORTS 1)
 
 target_link_libraries(_ext_test PRIVATE _ext)
+target_include_directories(_ext_test PRIVATE ${pybind11_INCLUDE_DIRS})
 target_include_directories(_ext_test SYSTEM
         PRIVATE ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/thirdparty
         PRIVATE ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/tests/thirdparty)
