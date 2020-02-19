@@ -47,7 +47,7 @@
 #include "_sputils.h"
 
 template <class T>
-constexpr void assert_valid_index_type() {
+void assert_valid_index_type() {
   static_assert(std::is_integral<T>(), "index must be integral");
   static_assert(sizeof(T) <= sizeof(size_t),
                 "index type cannot be larger than size_t");

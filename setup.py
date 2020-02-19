@@ -7,6 +7,8 @@ from setuptools import Extension
 extra_compile_args = []
 if platform.system() in ["Linux", "Darwin"]:
     extra_compile_args += ["-Wall", "-Wextra"]
+if platform.system() == "Darwin":
+    extra_compile_args += ["-std=c++11", "-stdlib=libc++"]
 
 
 class get_numpy_include:
