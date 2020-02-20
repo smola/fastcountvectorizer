@@ -18,12 +18,10 @@
 
 namespace py = pybind11;
 
-void CharNgramCounter::prepare_vocab() {}
-
 CharNgramCounter::CharNgramCounter(const unsigned int min_n,
-                                   const unsigned int max_n)
-    : min_n(min_n), max_n(max_n) {
-  prepare_vocab();
+                                   const unsigned int max_n,
+                                   py::object fixed_vocab)
+    : min_n(min_n), max_n(max_n), fixed_vocab(fixed_vocab) {
   result_array_len = 0;
   if (need_expand_counts()) {
     prefixes = new std::vector<string_with_kind>();
@@ -44,41 +42,82 @@ CharNgramCounter::~CharNgramCounter() {
 }
 
 void CharNgramCounter::process(const py::str& obj) {
-  const unsigned int n = max_n;
   const char* data = (char*)PyUnicode_1BYTE_DATA(obj.ptr());
   const auto len = PyUnicode_GET_LENGTH(obj.ptr());
   const auto kind = (std::uint8_t)PyUnicode_KIND(obj.ptr());
   const auto byte_len = (std::size_t)len * kind;
 
-  counter_map counters(kind * n);
-  counter_map::iterator cit;
+  if (have_fixed_focab()) {
+    const py::dict fixed_vocab_dict =
+        py::reinterpret_borrow<py::dict>(fixed_vocab);
+    indices->set_max_value(fixed_vocab_dict.size());
+    indptr->set_max_value(fixed_vocab_dict.size());
 
-  if (need_expand_counts()) {
-    const unsigned int prefix_len = (len <= max_n) ? (unsigned int)len : max_n;
-    prefixes->push_back(string_with_kind(data, prefix_len * kind, kind));
-  }
+    for (unsigned int n = min_n; n <= max_n; n++) {
+      counter_map counters(kind * n);
 
-  for (std::size_t i = 0; i <= byte_len - n * kind; i += kind) {
-    const char* data_ptr = data + i;
-    counters.increment_key(data_ptr);
-  }
+      for (std::size_t i = 0; i <= byte_len - n * kind; i += kind) {
+        const char* data_ptr = data + i;
+        counters.increment_key(data_ptr);
+      }
 
-  result_array_len += counters.size();
-  values->reserve(counters.size());
-  indices->set_max_value({vocab.size(), result_array_len});
-  indices->reserve(counters.size());
-  indptr->set_max_value({vocab.size(), result_array_len});
-  indptr->push_back(result_array_len);
+      const py::dict fixed_vocab_dict =
+          py::reinterpret_borrow<py::dict>(fixed_vocab);
+      for (auto it = counters.begin(); it != counters.end(); it++) {
+        const py::str key = py::reinterpret_steal<py::str>(
+            PyUnicode_FromKindAndData(kind, it->first, n));
+        if (!fixed_vocab_dict.contains(key)) {
+          continue;
+        }
+        const std::size_t term_idx = py::cast<py::int_>(fixed_vocab_dict[key]);
+        result_array_len++;
+        indices->set_max_value(result_array_len);
+        indices->push_back(term_idx);
+        values->push_back(it->second);
+      }
+    }
 
-  for (cit = counters.begin(); cit != counters.end(); cit++) {
-    const size_t term_idx =
-        vocab[string_with_kind::compact(cit->first, n * kind, kind)];
-    indices->push_back(term_idx);
-    values->push_back(cit->second);
+    indptr->set_max_value(result_array_len);
+    indptr->push_back(result_array_len);
+  } else {
+    const unsigned int n = max_n;
+
+    counter_map counters(kind * n);
+
+    if (need_expand_counts()) {
+      const unsigned int prefix_len =
+          (len <= max_n) ? (unsigned int)len : max_n;
+      prefixes->push_back(string_with_kind(data, prefix_len * kind, kind));
+    }
+
+    for (std::size_t i = 0; i <= byte_len - n * kind; i += kind) {
+      const char* data_ptr = data + i;
+      counters.increment_key(data_ptr);
+    }
+
+    result_array_len += counters.size();
+    values->reserve(counters.size());
+    indices->set_max_value({vocab.size(), result_array_len});
+    indices->reserve(counters.size());
+    indptr->set_max_value({vocab.size(), result_array_len});
+    indptr->push_back(result_array_len);
+
+    for (auto it = counters.begin(); it != counters.end(); it++) {
+      const std::size_t term_idx =
+          vocab[string_with_kind::compact(it->first, n * kind, kind)];
+      indices->push_back(term_idx);
+      values->push_back(it->second);
+    }
   }
 }
 
-bool CharNgramCounter::need_expand_counts() const { return min_n < max_n; }
+bool CharNgramCounter::have_fixed_focab() const {
+  return !fixed_vocab.is_none();
+}
+
+bool CharNgramCounter::need_expand_counts() const {
+  return !have_fixed_focab() && min_n < max_n;
+}
 
 bool vocab_idx_less_than(const std::pair<string_with_kind, size_t>& a,
                          const std::pair<string_with_kind, size_t>& b) {

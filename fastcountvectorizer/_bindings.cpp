@@ -8,8 +8,9 @@ namespace py = pybind11;
 PYBIND11_MODULE(_ext, m) {
   m.doc() = "fastcountvectorizer internal extension. DO NOT USE DIRECTLY.";
   py::class_<CharNgramCounter>(m, "_CharNgramCounter")
-      .def(py::init<const unsigned int, const unsigned int>(), py::arg("min_n"),
-           py::arg("max_n"))
+      .def(py::init<const unsigned int, const unsigned int, const py::object>(),
+           py::arg("min_n"), py::arg("max_n"),
+           py::arg("fixed_vocab").none(true))
       .def("process", &CharNgramCounter::process, py::arg("doc"))
       .def("expand_counts", &CharNgramCounter::expand_counts)
       .def("limit_features", &CharNgramCounter::limit_features,
