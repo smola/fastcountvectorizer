@@ -1,6 +1,7 @@
 add_executable(_ext_test
         test__ext.cpp
-        test__ext_impl.cpp
+        test__collections_impl.cpp
+        test__counters_impl.cpp
         test__strings_impl.cpp
         test__sputils_impl.cpp)
 

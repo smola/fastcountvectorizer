@@ -1,7 +1,7 @@
 
 #include <pybind11/pybind11.h>
 
-#include "_ext.h"
+#include "_counters.h"
 
 namespace py = pybind11;
 
