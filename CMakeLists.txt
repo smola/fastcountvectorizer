@@ -37,8 +37,6 @@ else()
 endif()
 unset(_pybind11_STATUS)
 
-
-
 add_subdirectory(fastcountvectorizer)
 add_subdirectory(fastcountvectorizer/tests)
 

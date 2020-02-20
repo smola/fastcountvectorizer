@@ -12,6 +12,10 @@ target_include_directories(_ext PUBLIC ${fastcountvectorizer_SOURCE_DIR}/fastcou
 target_include_directories(_ext PRIVATE ${pybind11_INCLUDE_DIRS})
 target_include_directories(_ext SYSTEM PRIVATE ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/thirdparty)
 
+if(NOT MSVC)
+    target_compile_options(_ext PRIVATE -fvisibility=hidden)
+endif()
+
 # set warning levels
 # see https://foonathan.net/2018/10/cmake-warnings/
 target_compile_options(_ext PRIVATE

@@ -24,6 +24,10 @@ target_include_directories(_ext_test SYSTEM
         PRIVATE ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/thirdparty
         PRIVATE ${fastcountvectorizer_SOURCE_DIR}/fastcountvectorizer/tests/thirdparty)
 
+if(NOT MSVC)
+    target_compile_options(_ext_test PRIVATE -fvisibility=hidden)
+endif()
+
 # set warning levels
 # see https://foonathan.net/2018/10/cmake-warnings/
 target_compile_options(_ext_test PRIVATE
