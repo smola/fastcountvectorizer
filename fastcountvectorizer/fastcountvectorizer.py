@@ -290,32 +290,6 @@ class FastCountVectorizer(BaseEstimator):
             return s.decode("latin-1")
         return s
 
-    def _count_vocab_from_docs(self, n, docs, vocab):
-        counter = _CharNgramCounter(self.ngram_range[0], self.ngram_range[1], vocab)
-        for doc in docs:
-            counter.process(doc)
-        counter.postprocess()
-        values, indices, indptr = counter.get_result()
-        del counter
-
-        if indptr[-1] > np.iinfo(np.int32).max:  # = 2**31 - 1
-            if _IS_32BIT:
-                raise ValueError(
-                    (
-                        "sparse CSR array has {} non-zero "
-                        "elements and requires 64 bit indexing, "
-                        "which is unsupported with 32 bit Python."
-                    ).format(indptr[-1])
-                )
-
-        counts = sp.csr_matrix(
-            (values, indices, indptr),
-            shape=(len(indptr) - 1, len(vocab)),
-            dtype=self.dtype,
-        )
-
-        return vocab, counts
-
     def _frequency_limits(self, n_doc):
         min_df = self.min_df
         max_df = self.max_df
