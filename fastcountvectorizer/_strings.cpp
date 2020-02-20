@@ -156,3 +156,39 @@ py::str string_with_kind::toPyObject() const {
 string_with_kind string_with_kind::suffix() const {
   return string_with_kind::compact(data() + kind(), size() - kind(), kind());
 }
+
+template <class T>
+std::size_t _string_with_kind_find(const void* s, const std::size_t size,
+                                   const T c, const std::size_t pos) {
+  auto data = (T*)s;
+  const auto cp_len = size / sizeof(T);
+  for (std::size_t i = pos; i < cp_len; i++) {
+    if (data[i] == c) {
+      return i;
+    }
+  }
+  return std::string::npos;
+}
+
+std::size_t string_find(const void* s, const std::size_t size,
+                        const uint8_t kind, const char c,
+                        const std::size_t pos) {
+  if (kind == 1) {
+    return _string_with_kind_find<uint8_t>(s, size, (uint8_t)c, pos);
+  } else if (kind == 2) {
+    return _string_with_kind_find<uint16_t>(s, size, (uint16_t)c, pos);
+  } else {
+    return _string_with_kind_find<uint32_t>(s, size, (uint32_t)c, pos);
+  }
+}
+
+std::size_t string_find(const string_with_kind& s, char c, std::size_t pos) {
+  return string_find(s.data(), s.size(), s.kind(), c, pos);
+}
+
+std::size_t string_find(const py::str& s, char c, std::size_t pos) {
+  const auto data = PyUnicode_1BYTE_DATA(s.ptr());
+  const auto len = (std::size_t)PyUnicode_GET_LENGTH(s.ptr());
+  const auto kind = (uint8_t)PyUnicode_KIND(s.ptr());
+  return string_find(data, len * kind, kind, c, pos);
+}

@@ -25,10 +25,9 @@ def test_fastcountvectorizer_validate_params():
         FastCountVectorizer(input="unsupported").fit(["foo"])
 
     FastCountVectorizer(analyzer="char").fit(["foo"])
+    FastCountVectorizer(analyzer="char_wb").fit(["foo"])
     with pytest.raises(ValueError):
         FastCountVectorizer(analyzer="word").fit(["foo"])
-    with pytest.raises(ValueError):
-        FastCountVectorizer(analyzer="char_wb").fit(["foo"])
     with pytest.raises(ValueError):
         FastCountVectorizer(input="unsupported").fit(["foo"])
 
@@ -68,6 +67,28 @@ def test_fastcountvectorizer_ngram1():
     )
 
 
+def test_fastcountvectorizer_ngram1_char_wb():
+    cv = FastCountVectorizer(analyzer="char_wb", ngram_range=(1, 1))
+    check_cv(
+        cv,
+        input=["abc"],
+        output=lil_matrix([[2, 1, 1, 1]]).tocsr(),
+        vocab=[" ", "a", "b", "c"],
+    )
+    check_cv(
+        cv,
+        input=["cba"],
+        output=lil_matrix([[2, 1, 1, 1]]).tocsr(),
+        vocab=[" ", "a", "b", "c"],
+    )
+    check_cv(
+        cv,
+        input=["cba", "ade"],
+        output=lil_matrix([[2, 1, 1, 1, 0, 0], [2, 1, 0, 0, 1, 1]]).tocsr(),
+        vocab=[" ", "a", "b", "c", "d", "e"],
+    )
+
+
 def test_fastcountvectorizer_ngram1_unicode():
     cv = FastCountVectorizer(ngram_range=(1, 1))
     check_cv(
@@ -99,6 +120,54 @@ def test_fastcountvectorizer_ngram1_2():
             [[1, 0, 1, 1, 1, 1, 0, 0, 0], [1, 1, 0, 0, 0, 0, 1, 1, 1]]
         ).tocsr(),
         vocab=["a", "ad", "b", "ba", "c", "cb", "d", "de", "e"],
+    )
+
+
+def test_fastcountvectorizer_ngram1_2_char_wb():
+    cv = FastCountVectorizer(analyzer="char_wb", ngram_range=(1, 2))
+    check_cv(
+        cv,
+        input=["a bb"],
+        output=lil_matrix([[4, 1, 1, 1, 2, 1, 1]]).tocsr(),
+        vocab=[" ", " a", " b", "a", "b", "b ", "bb"],
+    )
+    check_cv(
+        cv,
+        input=["abc"],
+        output=lil_matrix([[2, 1, 1, 1, 1, 1, 1, 1]]).tocsr(),
+        vocab=[" ", " a", "a", "ab", "b", "bc", "c", "c "],
+    )
+    check_cv(
+        cv,
+        input=["cba"],
+        output=lil_matrix([[2, 1, 1, 1, 1, 1, 1, 1]]).tocsr(),
+        vocab=[" ", " c", "a", "a ", "b", "ba", "c", "cb"],
+    )
+    check_cv(
+        cv,
+        input=["cba", "ade"],
+        output=lil_matrix(
+            [
+                [2, 0, 1, 1, 1, 0, 1, 1, 1, 1, 0, 0, 0, 0],
+                [2, 1, 0, 1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1],
+            ]
+        ).tocsr(),
+        vocab=[
+            " ",
+            " a",
+            " c",
+            "a",
+            "a ",
+            "ad",
+            "b",
+            "ba",
+            "c",
+            "cb",
+            "d",
+            "de",
+            "e",
+            "e ",
+        ],
     )
 
 

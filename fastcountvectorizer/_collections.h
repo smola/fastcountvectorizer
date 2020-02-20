@@ -22,16 +22,43 @@ class vocab_map {
   void set_index(const string_with_kind& k, const size_t v) { _m[k] = v; }
 };
 
-class counter_map : public tsl::sparse_map<const char*, std::int64_t,
-                                           fixed_length_string_hash,
-                                           fixed_length_string_equal_to> {
+template <class Key, class Hash = std::hash<Key>,
+          class EqualTo = std::equal_to<Key>>
+class base_counter_map
+    : public tsl::sparse_map<Key, std::int64_t, Hash, EqualTo> {
+ public:
+  typedef tsl::sparse_map<Key, std::int64_t, Hash, EqualTo> base_map;
+
+  base_counter_map() = default;
+  base_counter_map(Hash hash, EqualTo equal) : base_map(0, hash, equal) {}
+
+  using base_map::end;
+  using base_map::find;
+  using base_map::insert;
+
+  void increment_key(const Key& k) {
+    auto it = find(k);
+    if (it == end()) {
+      insert({k, 1});
+    } else {
+      it.value()++;
+    }
+  }
+};
+
+class counter_map
+    : public base_counter_map<const char*, fixed_length_string_hash,
+                              fixed_length_string_equal_to> {
  public:
   explicit counter_map(const size_t str_length)
-      : tsl::sparse_map<const char*, std::int64_t, fixed_length_string_hash,
-                        fixed_length_string_equal_to>(
-            0, fixed_length_string_hash(str_length),
+      : base_counter_map<const char*, fixed_length_string_hash,
+                         fixed_length_string_equal_to>(
+            fixed_length_string_hash(str_length),
             fixed_length_string_equal_to(str_length)) {}
-  void increment_key(const char* k);
+};
+
+class string_with_kind_counter_map : public base_counter_map<string_with_kind> {
+
 };
 
 #endif  // FCV_COLLECTIONS_H

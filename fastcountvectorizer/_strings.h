@@ -65,4 +65,11 @@ struct fixed_length_string_equal_to {
   }
 };
 
+std::size_t string_find(const void* s, std::size_t size, uint8_t kind, char c,
+                        std::size_t pos);
+
+std::size_t string_find(string_with_kind& s, char c, std::size_t pos);
+
+std::size_t string_find(py::str& s, char c, std::size_t pos);
+
 #endif  // FCV_STRINGS_H

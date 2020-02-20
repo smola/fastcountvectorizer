@@ -45,6 +45,7 @@
 import math
 import numbers
 from operator import itemgetter
+import re
 
 import numpy as np
 import scipy.sparse as sp
@@ -74,7 +75,7 @@ class FastCountVectorizer(BaseEstimator):
         ``ngram_range`` of ``(1, 1)`` means only unigrams, ``(1, 2)`` means
         unigrams and bigrams, and ``(2, 2)`` means only bigrams.
 
-    analyzer : string, {'char'}
+    analyzer : string, {'char', 'char_wb'}
         Analyzer mode. If set to 'char' (default value, only option) character
         ngrams will be used.
 
@@ -216,8 +217,8 @@ class FastCountVectorizer(BaseEstimator):
     def _validate_params(self):
         if self.input != "content":
             raise ValueError('only input="content" is currently supported')
-        if self.analyzer != "char":
-            raise ValueError('only analyzer="char" is currently supported')
+        if self.analyzer not in ("char", "char_wb"):
+            raise ValueError("unsupported analyzer: %s" % self.analyzer)
         min_n, max_m = self.ngram_range
         if min_n > max_m:
             raise ValueError(
@@ -245,8 +246,11 @@ class FastCountVectorizer(BaseEstimator):
         min_ngram, max_ngram = self.ngram_range
 
         n_doc = 0
-        counter = _CharNgramCounter(min_ngram, max_ngram, fixed_vocab=vocab)
+        counter = _CharNgramCounter(
+            self.analyzer, min_ngram, max_ngram, fixed_vocab=vocab
+        )
         for doc in docs:
+            doc = self._preprocess(doc)
             counter.process(doc)
             n_doc += 1
 
@@ -300,3 +304,11 @@ class FastCountVectorizer(BaseEstimator):
             raise ValueError("max_df corresponds to < documents than min_df")
 
         return int(math.ceil(min_df)), int(max_df)
+
+    _white_spaces_wb = re.compile(r"(^\s*|\s\s+|\s*$)")
+
+    def _preprocess(self, doc):
+        if self.analyzer == "char_wb":
+            doc = self._white_spaces_wb.sub(" ", doc)
+
+        return doc
