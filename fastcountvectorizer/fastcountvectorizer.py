@@ -44,8 +44,6 @@
 
 import math
 import numbers
-from array import array
-from collections import defaultdict
 from operator import itemgetter
 
 import numpy as np
@@ -174,7 +172,7 @@ class FastCountVectorizer(BaseEstimator):
         # to keep compatibility with CountVectorizer.
         self._validate_params()
         self._validate_raw_documents(raw_documents)
-        vocab, X = self._count_vocab(raw_documents)
+        vocab, X = self._count_vocab(raw_documents, fixed_vocab=False)
         if self.binary:
             X.data.fill(1)
         self.vocabulary_ = vocab
@@ -197,7 +195,7 @@ class FastCountVectorizer(BaseEstimator):
             Document-term matrix.
         """
         self._validate_raw_documents(raw_documents)
-        _, X = self._count_fixed_vocab(raw_documents, self.vocabulary_)
+        _, X = self._count_vocab(raw_documents, fixed_vocab=True)
         if self.binary:
             X.data.fill(1)
         return X
@@ -238,25 +236,32 @@ class FastCountVectorizer(BaseEstimator):
                 "Iterable over raw text documents expected, " "string object received."
             )
 
-    def _count_vocab(self, docs):
+    def _count_vocab(self, docs, fixed_vocab=False):
+        if fixed_vocab:
+            vocab = self.vocabulary_
+        else:
+            vocab = None
+
         min_ngram, max_ngram = self.ngram_range
 
         n_doc = 0
-        counter = _CharNgramCounter(min_ngram, max_ngram)
+        counter = _CharNgramCounter(min_ngram, max_ngram, fixed_vocab=vocab)
         for doc in docs:
             counter.process(doc)
             n_doc += 1
 
-        counter.expand_counts()
+        if not fixed_vocab:
+            counter.expand_counts()
 
-        min_df, max_df = self._frequency_limits(n_doc)
-        if min_df > 1 or max_df < n_doc:
-            self.stop_words_ = counter.limit_features(min_df, max_df)
-        else:
-            self.stop_words_ = set()
-            counter.sort_features()
+            min_df, max_df = self._frequency_limits(n_doc)
+            if min_df > 1 or max_df < n_doc:
+                self.stop_words_ = counter.limit_features(min_df, max_df)
+            else:
+                self.stop_words_ = set()
+                counter.sort_features()
 
-        vocab = counter.get_vocab()
+            vocab = counter.get_vocab()
+
         values, indices, indptr = counter.get_result()
         del counter
 
@@ -279,48 +284,6 @@ class FastCountVectorizer(BaseEstimator):
         counts.sort_indices()
 
         return vocab, counts.astype(self.dtype, copy=False)
-
-    def _count_fixed_vocab(self, raw_documents, vocab):
-        values = array("i")
-        j_indices = []
-        indptr = [0]
-
-        for doc in raw_documents:
-            counters = defaultdict(int)
-            for term in self._analyze(doc):
-                idx = vocab.get(term, -1)
-                if idx >= 0:
-                    counters[idx] += 1
-            j_indices.extend(counters.keys())
-            values.extend(counters.values())
-            indptr.append(len(j_indices))
-
-        if indptr[-1] > np.iinfo(np.int32).max:  # = 2**31 - 1
-            if _IS_32BIT:
-                raise ValueError(
-                    (
-                        "sparse CSR array has {} non-zero "
-                        "elements and requires 64 bit indexing, "
-                        "which is unsupported with 32 bit Python."
-                    ).format(indptr[-1])
-                )
-            indices_dtype = np.int64
-        else:
-            indices_dtype = np.int32
-
-        j_indices = np.asarray(j_indices, dtype=indices_dtype)
-        indptr = np.asarray(indptr, dtype=indices_dtype)
-        values = np.frombuffer(values, dtype=np.intc)
-
-        X = sp.csr_matrix(
-            (values, j_indices, indptr),
-            shape=(len(indptr) - 1, len(vocab)),
-            dtype=self.dtype,
-        )
-
-        X.sort_indices()
-
-        return vocab, X
 
     def _to_string(self, s):
         if isinstance(s, bytes):
@@ -363,14 +326,3 @@ class FastCountVectorizer(BaseEstimator):
             raise ValueError("max_df corresponds to < documents than min_df")
 
         return int(math.ceil(min_df)), int(max_df)
-
-    def _analyze(self, doc):
-        doc_len = len(doc)
-        for n in range(self.ngram_range[0], self.ngram_range[1] + 1):
-            for i in range(0, doc_len - n + 1):
-                yield doc[i : i + n]
-
-    def _analyze_fixed(self, doc, n):
-        if n == 1 and not isinstance(doc, bytes):
-            return iter(doc)
-        return (doc[i : i + n] for i in range(0, len(doc) - n + 1))

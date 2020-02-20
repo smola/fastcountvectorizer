@@ -10,9 +10,10 @@ namespace py = pybind11;
 
 class CharNgramCounter {
  private:
-  vocab_map vocab;
   unsigned int min_n;
   unsigned int max_n;
+  py::object fixed_vocab;
+  vocab_map vocab;
 
   std::size_t result_array_len;
   std::vector<string_with_kind>* prefixes;
@@ -20,12 +21,13 @@ class CharNgramCounter {
   index_vector* indices;
   index_vector* indptr;
 
-  void prepare_vocab();
+  bool have_fixed_focab() const;
   bool need_expand_counts() const;
   std::vector<size_t> document_frequencies() const;
 
  public:
-  CharNgramCounter(unsigned int min_n, unsigned int max_n);
+  CharNgramCounter(unsigned int min_n, unsigned int max_n,
+                   py::object fixed_vocab);
   ~CharNgramCounter();
 
   void process(const py::str& obj);
