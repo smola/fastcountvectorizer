@@ -4,16 +4,17 @@
 # list see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-import sphinx_rtd_theme
-
-# -- Path setup --------------------------------------------------------------
-
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os
 import sys
+
+import sphinx_rtd_theme
+
+# -- Path setup --------------------------------------------------------------
+
 
 sys.path.insert(0, os.path.abspath(".."))
 
@@ -68,10 +69,10 @@ autodoc_mock_imports = ["fastcountvectorizer._ext"]
 
 
 def autodoc_skip_member(app, what, name, obj, skip, options):
-    if name == 'fastcountvectorizer.fastcountvectorizer':
+    if name == "fastcountvectorizer.fastcountvectorizer":
         return True
     return None
 
 
 def setup(app):
-    app.connect('autodoc-skip-member', autodoc_skip_member)
+    app.connect("autodoc-skip-member", autodoc_skip_member)
