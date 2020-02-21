@@ -2,6 +2,7 @@ add_library(_ext STATIC
         _strings.cpp
         _sputils.cpp
         _collections.cpp
+        _analyzers.cpp
         _counters.cpp
         _bindings.cpp)
 
