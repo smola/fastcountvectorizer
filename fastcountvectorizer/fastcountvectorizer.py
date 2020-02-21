@@ -74,14 +74,14 @@ class FastCountVectorizer(BaseEstimator):
         ``ngram_range`` of ``(1, 1)`` means only unigrams, ``(1, 2)`` means
         unigrams and bigrams, and ``(2, 2)`` means only bigrams.
 
-    analyzer : string, {'char'}
-        Analyzer mode. If set to 'char' (default value, only option) character
-        ngrams will be used.
+    analyzer : string, {'char', 'word'}
+        Whether the feature should be made of word n-gram or character n-grams.
+        Defaults to word.
 
         .. warning:: FastCountVectorizer does not apply any kind of
            preprocessing to inputs. Note that this is different from
            scikit-learn's CountVectorizer performs, which applies whitespace
-           normalization.
+           normalization for the char ngram analyzer.
 
     max_df : float in range [0.0, 1.0] or int, default=1.0
         When building the vocabulary ignore terms that have a document
@@ -122,7 +122,7 @@ class FastCountVectorizer(BaseEstimator):
         self,
         input="content",
         ngram_range=(1, 1),
-        analyzer="char",
+        analyzer="word",
         min_df=1,
         max_df=1.0,
         binary=False,
@@ -216,7 +216,7 @@ class FastCountVectorizer(BaseEstimator):
     def _validate_params(self):
         if self.input != "content":
             raise ValueError('only input="content" is currently supported')
-        if self.analyzer not in ("char",):
+        if self.analyzer not in ("char", "word"):
             raise ValueError("supported analyzer=%s" % self.analyzer)
         min_n, max_m = self.ngram_range
         if min_n > max_m:

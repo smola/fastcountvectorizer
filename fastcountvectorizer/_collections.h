@@ -57,4 +57,8 @@ class counter_map
             fixed_length_string_equal_to(str_length)) {}
 };
 
+class string_with_kind_counter_map : public base_counter_map<string_with_kind> {
+
+};
+
 #endif  // FCV_COLLECTIONS_H
