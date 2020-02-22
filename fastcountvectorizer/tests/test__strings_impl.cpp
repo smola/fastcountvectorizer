@@ -99,21 +99,19 @@ TEST_CASE("string_with_kind less") {
   }
 }
 
-TEST_CASE("string_with_kind to PyObject") {
-  py::str obj;
+TEST_CASE("py::str to string_with_kind") {
+  REQUIRE(static_cast<string_with_kind>(py::str("")) ==
+          string_with_kind("", 0, 1));
+  REQUIRE(static_cast<string_with_kind>(py::str("abc")) ==
+          string_with_kind("abc", 3, 1));
+}
 
-  obj = string_with_kind("", 0, 1).toPyObject();
-  REQUIRE(obj.ptr() != nullptr);
-  REQUIRE(PyUnicode_GET_LENGTH(obj.ptr()) == 0);
-  REQUIRE(PyUnicode_KIND(obj.ptr()) == 1);
+TEST_CASE("string_with_kind to py::str") {
+  REQUIRE(static_cast<py::str>(string_with_kind("", 0, 1)).equal(py::str("")));
+  REQUIRE(static_cast<py::str>(string_with_kind("abc", 3, 1))
+              .equal(py::str("abc")));
 
-  obj = string_with_kind("abc", 3, 1).toPyObject();
-  REQUIRE(obj.ptr() != nullptr);
-  REQUIRE(PyUnicode_GET_LENGTH(obj.ptr()) == 3);
-  REQUIRE(PyUnicode_KIND(obj.ptr()) == 1);
-
-  obj = make_string_with_kind<uint16_t>({1, 2, 3}).toPyObject();
-  REQUIRE(obj.ptr() != nullptr);
-  REQUIRE(PyUnicode_GET_LENGTH(obj.ptr()) == 3);
-  REQUIRE(PyUnicode_KIND(obj.ptr()) == 1);
+  string_with_kind str = make_string_with_kind<uint16_t>({0x30A1});
+  py::str pystr = static_cast<py::str>(str);
+  REQUIRE(static_cast<string_with_kind>(pystr) == str);
 }

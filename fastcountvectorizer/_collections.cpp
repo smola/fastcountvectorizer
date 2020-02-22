@@ -26,7 +26,7 @@ py::dict vocab_map::flush_to_pydict() {
   int error = 0;
   while (it != _m.end()) {
     if (error == 0) {
-      py::str key = it->first.toPyObject();
+      py::str key = static_cast<py::str>(it->first);
       py::int_ value(it->second);
       if (PyDict_SetItem(dest_vocab.ptr(), key.ptr(), value.ptr()) != 0) {
         error = -1;
