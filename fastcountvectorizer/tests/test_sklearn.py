@@ -81,6 +81,9 @@ from functools import partial
 import pickle
 from io import StringIO
 
+
+xfail_fcv = pytest.mark.xfail(reason="not supported yet", strict=True)
+
 JUNK_FOOD_DOCS = (
     "the pizza pizza beer copyright",
     "the pizza burger beer copyright",
@@ -174,7 +177,7 @@ def test_to_ascii():
     assert strip_accents_ascii(a) == expected
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Vectorizer", (CountVectorizer,))
 def test_word_analyzer_unigrams(Vectorizer):
     wa = Vectorizer(strip_accents="ascii").build_analyzer()
@@ -237,7 +240,7 @@ def test_word_analyzer_unigrams(Vectorizer):
     assert wa(text) == expected
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_word_analyzer_unigrams_and_bigrams():
     wa = CountVectorizer(
         analyzer="word", strip_accents="unicode", ngram_range=(1, 2)
@@ -268,7 +271,7 @@ def test_word_analyzer_unigrams_and_bigrams():
     assert wa(text) == expected
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_unicode_decode_error():
     # decode_error default to strict, so this should fail
     # First, encode (as bytes) a unicode string.
@@ -288,7 +291,7 @@ def test_unicode_decode_error():
         ca(text_bytes)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_char_ngram_analyzer():
     cnga = CountVectorizer(
         analyzer="char", strip_accents="unicode", ngram_range=(3, 6)
@@ -315,7 +318,7 @@ def test_char_ngram_analyzer():
     assert cnga(text)[:5] == expected
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_char_wb_ngram_analyzer():
     cnga = CountVectorizer(
         analyzer="char_wb", strip_accents="unicode", ngram_range=(3, 6)
@@ -336,7 +339,7 @@ def test_char_wb_ngram_analyzer():
     assert cnga(text)[:6] == expected
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_word_ngram_analyzer():
     cnga = CountVectorizer(
         analyzer="word", strip_accents="unicode", ngram_range=(3, 6)
@@ -360,7 +363,7 @@ def test_word_ngram_analyzer():
     assert cnga_file(file) == cnga(text)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_custom_vocabulary():
     vocab = {"pizza": 0, "beer": 1}
     terms = set(vocab.keys())
@@ -382,7 +385,7 @@ def test_countvectorizer_custom_vocabulary():
         assert len(inv) == X.shape[0]
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_custom_vocabulary_pipeline():
     what_we_like = ["pizza", "beer"]
     pipe = Pipeline(
@@ -396,7 +399,7 @@ def test_countvectorizer_custom_vocabulary_pipeline():
     assert X.shape[1] == len(what_we_like)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_custom_vocabulary_repeated_indices():
     vocab = {"pizza": 0, "beer": 0}
     try:
@@ -405,7 +408,7 @@ def test_countvectorizer_custom_vocabulary_repeated_indices():
         assert "vocabulary contains repeated indices" in str(e).lower()
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_custom_vocabulary_gap_index():
     vocab = {"pizza": 1, "beer": 2}
     try:
@@ -414,7 +417,7 @@ def test_countvectorizer_custom_vocabulary_gap_index():
         assert "doesn't contain index" in str(e).lower()
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_stop_words():
     cv = CountVectorizer()
     cv.set_params(stop_words="english")
@@ -430,7 +433,7 @@ def test_countvectorizer_stop_words():
     assert cv.get_stop_words() == set(stoplist)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_empty_vocabulary():
     try:
         vect = CountVectorizer(vocabulary=[])
@@ -455,7 +458,7 @@ def test_fit_countvectorizer_twice():
     assert X1.shape[1] != X2.shape[1]
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_vectorizer():
     # raw documents as an iterator
     train_data = iter(ALL_FOOD_DOCS[:-1])
@@ -499,7 +502,7 @@ def test_vectorizer():
         assert counts_test[0, vocabulary["pizza"]] == 0
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_feature_names():
     cv = CountVectorizer(max_df=0.5)
 
@@ -568,7 +571,7 @@ def test_feature_names():
         assert idx == cv.vocabulary_.get(name)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Vectorizer", (CountVectorizer,))
 def test_vectorizer_max_features(Vectorizer):
     expected_vocabulary = {"burger", "beer", "salad", "pizza"}
@@ -589,7 +592,7 @@ def test_vectorizer_max_features(Vectorizer):
     assert vectorizer.stop_words_ == expected_stop_words
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_count_vectorizer_max_features():
     # Regression test: max_features didn't work correctly in 0.14.
 
@@ -682,7 +685,7 @@ def test_count_binary_occurrences():
     assert X_sparse.dtype == np.float32
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Vectorizer", (CountVectorizer,))
 def test_vectorizer_inverse_transform(Vectorizer):
     # raw documents
@@ -739,7 +742,7 @@ def test_count_vectorizer_pipeline_grid_selection():
     assert best_vectorizer.ngram_range == (1, 1)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @fails_if_pypy
 def test_vectorizer_unicode():
     # tests that the count vectorizer works with cyrillic.
@@ -761,7 +764,7 @@ def test_vectorizer_unicode():
     assert_array_equal(np.sort(X_counted.data), np.sort(X_hashed.data))
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_pickling_vectorizer():
     instances = [
         CountVectorizer(),
@@ -782,7 +785,7 @@ def test_pickling_vectorizer():
         )
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize(
     "factory",
     [
@@ -804,7 +807,7 @@ def test_pickling_built_processors(factory):
     assert result == expected
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_vocab_sets_when_pickling():
     # ensure that vocabulary of type set is coerced to a list to
     # preserve iteration ordering after deserialization
@@ -831,7 +834,7 @@ def test_countvectorizer_vocab_sets_when_pickling():
         assert cv.get_feature_names() == unpickled_cv.get_feature_names()
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_countvectorizer_vocab_dicts_when_pickling():
     rng = np.random.RandomState(0)
     vocab_words = np.array(
@@ -859,7 +862,7 @@ def test_countvectorizer_vocab_dicts_when_pickling():
         assert cv.get_feature_names() == unpickled_cv.get_feature_names()
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_stop_words_removal():
     # Ensure that deleting the stop_words_ attribute doesn't affect transform
 
@@ -881,7 +884,7 @@ def test_stop_words_removal():
         assert_array_equal(stop_del_transform, vect_transform)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 def test_non_unique_vocab():
     vocab = ["a", "b", "c", "a", "a"]
     vect = CountVectorizer(vocabulary=vocab)
@@ -920,7 +923,7 @@ def _check_stop_words_consistency(estimator):
     return estimator._check_stop_words_consistency(stop_words, preprocess, tokenize)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @fails_if_pypy
 def test_vectorizer_stop_words_inconsistent():
     lstr = "['and', 'll', 've']"
@@ -945,7 +948,7 @@ def test_vectorizer_stop_words_inconsistent():
     assert_warns_message(UserWarning, message, vec.fit_transform, ["hello world"])
 
 
-@pytest.mark.skip(reason="_sort_features not exposed in python")
+@xfail_fcv
 @skip_if_32bit
 def test_countvectorizer_sort_features_64bit_sparse_indices():
     """
@@ -971,7 +974,7 @@ def test_countvectorizer_sort_features_64bit_sparse_indices():
     assert INDICES_DTYPE == Xs.indices.dtype
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @fails_if_pypy
 @pytest.mark.parametrize("Estimator", [CountVectorizer])
 def test_stop_word_validation_custom_preprocessor(Estimator):
@@ -999,7 +1002,7 @@ def test_stop_word_validation_custom_preprocessor(Estimator):
     assert _check_stop_words_consistency(vec) is True
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Estimator", [CountVectorizer])
 @pytest.mark.parametrize(
     "input_type, err_type, err_msg",
@@ -1014,7 +1017,7 @@ def test_callable_analyzer_error(Estimator, input_type, err_type, err_msg):
         Estimator(analyzer=lambda x: x.split(), input=input_type).fit_transform(data)
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Estimator", [CountVectorizer])
 @pytest.mark.parametrize(
     "analyzer", [lambda doc: open(doc, "r"), lambda doc: doc.read()]
@@ -1030,7 +1033,7 @@ def test_callable_analyzer_change_behavior(Estimator, analyzer, input_type):
     assert warn_msg in str(records[0])
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Estimator", [CountVectorizer])
 def test_callable_analyzer_reraise_error(tmpdir, Estimator):
     # check if a custom exception from the analyzer is shown to the user
@@ -1044,7 +1047,7 @@ def test_callable_analyzer_reraise_error(tmpdir, Estimator):
         Estimator(analyzer=analyzer, input="file").fit_transform([f])
 
 
-@pytest.mark.skip(reason="unsupported")
+@xfail_fcv
 @pytest.mark.parametrize("Vectorizer", [CountVectorizer])
 @pytest.mark.parametrize(
     "stop_words, tokenizer, preprocessor, ngram_range, token_pattern,"
