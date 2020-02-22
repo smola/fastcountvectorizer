@@ -216,8 +216,8 @@ class FastCountVectorizer(BaseEstimator):
     def _validate_params(self):
         if self.input != "content":
             raise ValueError('only input="content" is currently supported')
-        if self.analyzer != "char":
-            raise ValueError('only analyzer="char" is currently supported')
+        if self.analyzer not in ("char",):
+            raise ValueError("supported analyzer=%s" % self.analyzer)
         min_n, max_m = self.ngram_range
         if min_n > max_m:
             raise ValueError(
@@ -245,7 +245,9 @@ class FastCountVectorizer(BaseEstimator):
         min_ngram, max_ngram = self.ngram_range
 
         n_doc = 0
-        counter = _CharNgramCounter(min_ngram, max_ngram, fixed_vocab=vocab)
+        counter = _CharNgramCounter(
+            self.analyzer, min_ngram, max_ngram, fixed_vocab=vocab
+        )
         for doc in docs:
             counter.process(doc)
             n_doc += 1

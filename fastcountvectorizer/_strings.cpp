@@ -154,5 +154,9 @@ py::str string_with_kind::toPyObject() const {
 }
 
 string_with_kind string_with_kind::suffix() const {
+  if (empty()) {
+    return *this;
+  }
+
   return string_with_kind::compact(data() + kind(), size() - kind(), kind());
 }

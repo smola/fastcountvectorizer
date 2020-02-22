@@ -3,7 +3,8 @@ add_executable(_ext_test
         test__collections_impl.cpp
         test__counters_impl.cpp
         test__strings_impl.cpp
-        test__sputils_impl.cpp)
+        test__sputils_impl.cpp
+        test__analyzers_impl.cpp)
 
 add_custom_target(run-tests COMMAND _ext_test)
 

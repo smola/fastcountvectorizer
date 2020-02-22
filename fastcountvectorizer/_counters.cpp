@@ -10,6 +10,7 @@
 
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
+#include "_analyzers.h"
 #include "_collections.h"
 #include "_counters.h"
 #include "_csr.h"
@@ -18,10 +19,12 @@
 
 namespace py = pybind11;
 
-CharNgramCounter::CharNgramCounter(const unsigned int min_n,
+CharNgramCounter::CharNgramCounter(const std::string& a,
+                                   const unsigned int min_n,
                                    const unsigned int max_n,
                                    py::object fixed_vocab)
     : min_n(min_n), max_n(max_n), fixed_vocab(fixed_vocab) {
+  analyzer = ngram_analyzer::make(a);
   result_array_len = 0;
   if (need_expand_counts()) {
     prefixes = new std::vector<string_with_kind>();
@@ -35,6 +38,7 @@ CharNgramCounter::CharNgramCounter(const unsigned int min_n,
 }
 
 CharNgramCounter::~CharNgramCounter() {
+  delete analyzer;
   delete prefixes;
   delete values;
   delete indices;
@@ -42,11 +46,6 @@ CharNgramCounter::~CharNgramCounter() {
 }
 
 void CharNgramCounter::process(const py::str& obj) {
-  const char* data = (char*)PyUnicode_1BYTE_DATA(obj.ptr());
-  const auto len = PyUnicode_GET_LENGTH(obj.ptr());
-  const auto kind = (std::uint8_t)PyUnicode_KIND(obj.ptr());
-  const auto byte_len = (std::size_t)len * kind;
-
   if (have_fixed_focab()) {
     const py::dict fixed_vocab_dict =
         py::reinterpret_borrow<py::dict>(fixed_vocab);
@@ -54,60 +53,53 @@ void CharNgramCounter::process(const py::str& obj) {
     indptr->set_max_value(fixed_vocab_dict.size());
 
     for (unsigned int n = min_n; n <= max_n; n++) {
-      counter_map counters(kind * n);
-
-      for (std::size_t i = 0; i <= byte_len - n * kind; i += kind) {
-        const char* data_ptr = data + i;
-        counters.increment_key(data_ptr);
-      }
+      ngram_analysis_counts* counts = analyzer->analyze(n, obj);
 
       const py::dict fixed_vocab_dict =
           py::reinterpret_borrow<py::dict>(fixed_vocab);
-      for (auto it = counters.begin(); it != counters.end(); it++) {
-        const py::str key = py::reinterpret_steal<py::str>(
-            PyUnicode_FromKindAndData(kind, it->first, n));
+
+      while (counts->next()) {
+        const py::str key = counts->pykey();
         if (!fixed_vocab_dict.contains(key)) {
           continue;
         }
+
         const std::size_t term_idx = py::cast<py::int_>(fixed_vocab_dict[key]);
         result_array_len++;
         indices->set_max_value(result_array_len);
         indices->push_back(term_idx);
-        values->push_back(it->second);
+        values->push_back(counts->count());
       }
+
+      delete counts;
     }
 
     indptr->set_max_value(result_array_len);
     indptr->push_back(result_array_len);
+
   } else {
     const unsigned int n = max_n;
 
-    counter_map counters(kind * n);
-
     if (need_expand_counts()) {
-      const unsigned int prefix_len =
-          (len <= max_n) ? (unsigned int)len : max_n;
-      prefixes->push_back(string_with_kind(data, prefix_len * kind, kind));
+      prefixes->push_back(analyzer->prefix(n - 1, obj));
     }
 
-    for (std::size_t i = 0; i <= byte_len - n * kind; i += kind) {
-      const char* data_ptr = data + i;
-      counters.increment_key(data_ptr);
-    }
+    ngram_analysis_counts* counts = analyzer->analyze(n, obj);
 
-    result_array_len += counters.size();
-    values->reserve(counters.size());
+    result_array_len += counts->size();
+    values->reserve(counts->size());
     indices->set_max_value({vocab.size(), result_array_len});
-    indices->reserve(counters.size());
+    indices->reserve(counts->size());
     indptr->set_max_value({vocab.size(), result_array_len});
     indptr->push_back(result_array_len);
 
-    for (auto it = counters.begin(); it != counters.end(); it++) {
-      const std::size_t term_idx =
-          vocab[string_with_kind::compact(it->first, n * kind, kind)];
+    while (counts->next()) {
+      const std::size_t term_idx = vocab[counts->key()];
       indices->push_back(term_idx);
-      values->push_back(it->second);
+      values->push_back(counts->count());
     }
+
+    delete counts;
   }
 }
 
@@ -124,7 +116,7 @@ bool vocab_idx_less_than(const std::pair<string_with_kind, size_t>& a,
   return a.second < b.second;
 }
 
-void count_expansion_csr_matrix(vocab_map& vocab,
+void count_expansion_csr_matrix(ngram_analyzer* analyzer, vocab_map& vocab,
                                 std::vector<std::intptr_t>& conv_indices,
                                 const unsigned int min_n,
                                 const unsigned int max_n) {
@@ -144,7 +136,7 @@ void count_expansion_csr_matrix(vocab_map& vocab,
   for (auto it = vocab_copy.begin(); it != vocab_copy.end(); it++) {
     string_with_kind new_term = it->first;
     for (unsigned int n = max_n - 1; n >= min_n; n--) {
-      new_term = new_term.suffix();
+      new_term = analyzer->suffix(new_term);
       const size_t term_idx = vocab[new_term];
       assert(term_idx >= vocab_copy.size());
       conv_indices[i_indices++] = (std::intptr_t)term_idx;
@@ -153,7 +145,7 @@ void count_expansion_csr_matrix(vocab_map& vocab,
 }
 
 template <class I>
-void prefixes_add_csr_matrix(vocab_map& vocab,
+void prefixes_add_csr_matrix(ngram_analyzer* analyzer, vocab_map& vocab,
                              const std::vector<string_with_kind>& prefixes,
                              std::vector<I>& prefixes_indptr,
                              std::vector<I>& prefixes_indices,
@@ -163,16 +155,10 @@ void prefixes_add_csr_matrix(vocab_map& vocab,
   prefixes_indptr.resize(prefixes.size() + 1);
   prefixes_indptr[0] = 0;
   for (unsigned int i = 0; i < prefixes.size(); i++) {
-    const uint8_t kind = prefixes[i].kind();
-    const unsigned int prefix_len = (unsigned int)prefixes[i].size() / kind;
-    const unsigned int new_max_n =
-        (prefix_len <= max_n - 1) ? prefix_len : max_n - 1;
-    for (unsigned int n = new_max_n; n >= min_n; n--) {
-      for (unsigned int start = 0; start < max_n - n; start++) {
-        string_with_kind new_term = string_with_kind::compact(
-            prefixes[i].data() + (start * kind), (n * kind), kind);
-        prefixes_indices.push_back((I)vocab[new_term]);
-      }
+    std::vector<string_with_kind> prefix_ngrams =
+        analyzer->prefix_ngrams(prefixes[i], min_n, max_n - 1);
+    for (auto it = prefix_ngrams.cbegin(); it != prefix_ngrams.cend(); it++) {
+      prefixes_indices.push_back((I)vocab[*it]);
     }
     prefixes_indptr[i + 1] = (I)prefixes_indices.size();
   }
@@ -191,13 +177,13 @@ void CharNgramCounter::expand_counts() {
   // actual values are omitted, since they are always 1.
   // indptr is also omitted since it is always in increments of max_n-min_n
   std::vector<std::intptr_t> conv_indices;
-  count_expansion_csr_matrix(vocab, conv_indices, min_n, max_n);
+  count_expansion_csr_matrix(analyzer, vocab, conv_indices, min_n, max_n);
 
   // compute CSR matrix for prefixes, data is always 1
   std::vector<std::intptr_t> prefixes_indices;
   std::vector<std::intptr_t> prefixes_indptr;
-  prefixes_add_csr_matrix(vocab, *prefixes, prefixes_indptr, prefixes_indices,
-                          min_n, max_n);
+  prefixes_add_csr_matrix(analyzer, vocab, *prefixes, prefixes_indptr,
+                          prefixes_indices, min_n, max_n);
   delete prefixes;
   prefixes = nullptr;
 

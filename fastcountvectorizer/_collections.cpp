@@ -45,12 +45,3 @@ std::vector<std::pair<string_with_kind, size_t>> vocab_map::to_vector() const {
   }
   return result;
 }
-
-void counter_map::increment_key(const char* k) {
-  auto it = find(k);
-  if (it == end()) {
-    insert({k, 1});
-  } else {
-    it.value()++;
-  }
-}
