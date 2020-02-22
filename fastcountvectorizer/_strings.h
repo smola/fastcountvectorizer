@@ -11,20 +11,27 @@
 
 namespace py = pybind11;
 
-class string_with_kind : public std::string {
+class string_with_kind {
  private:
+  std::string base;
   uint8_t _kind;
 
  public:
   string_with_kind(const char* str, const size_t size, const uint8_t kind)
-      : std::string(str, size), _kind(kind) {}
+      : base(str, size), _kind(kind) {}
+  explicit string_with_kind(py::str s);
   uint8_t kind() const { return _kind; }
 
   static string_with_kind compact(const char* str, size_t size, uint8_t kind);
+
+  friend std::hash<string_with_kind>;
+  const char* data() const { return base.data(); }
+  std::size_t size() const { return base.size(); }
+  bool empty() const { return base.empty(); }
   bool operator==(const string_with_kind& other) const;
   bool operator!=(const string_with_kind& other) const;
   bool operator<(const string_with_kind& other) const;
-  py::str toPyObject() const;
+  explicit operator py::str() const;
   string_with_kind suffix() const;
 };
 
@@ -32,7 +39,7 @@ namespace std {
 template <>
 struct hash<string_with_kind> {
   size_t operator()(const string_with_kind& k) const {
-    return hash<string>()(k);
+    return hash<string>()(k.base);
   }
 };
 }  // namespace std

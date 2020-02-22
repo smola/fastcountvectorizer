@@ -249,7 +249,7 @@ py::set CharNgramCounter::limit_features(const std::size_t min_df,
       new_vocab_indices[old_idx] = (std::int64_t)new_index;
       new_index++;
     } else {
-      py::str pystr = it->first.toPyObject();
+      py::str pystr = static_cast<py::str>(it->first);
       stop_words.add(pystr);
       vocab.erase(it->first);
     }

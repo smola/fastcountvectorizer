@@ -5,6 +5,12 @@
 
 namespace py = pybind11;
 
+string_with_kind::string_with_kind(py::str s)
+    : string_with_kind(static_cast<char*>(PyUnicode_DATA(s.ptr())),
+                       static_cast<size_t>(PyUnicode_GET_LENGTH(s.ptr()) *
+                                           PyUnicode_KIND(s.ptr())),
+                       static_cast<uint8_t>(PyUnicode_KIND(s.ptr()))) {}
+
 string_with_kind string_with_kind::compact(const char* str, const size_t size,
                                            const uint8_t kind) {
   if (kind == 1) {
@@ -12,12 +18,8 @@ string_with_kind string_with_kind::compact(const char* str, const size_t size,
   }
 
   py::str obj = py::reinterpret_steal<py::str>(
-      PyUnicode_FromKindAndData(kind, str, (Py_ssize_t)size / kind));
-  const auto new_kind = (uint8_t)PyUnicode_KIND(obj.ptr());
-  const auto new_byte_len = (size_t)PyUnicode_GET_LENGTH(obj.ptr()) * new_kind;
-  string_with_kind result((char*)PyUnicode_1BYTE_DATA(obj.ptr()), new_byte_len,
-                          new_kind);
-  return result;
+      PyUnicode_FromKindAndData(kind, str, static_cast<ssize_t>(size / kind)));
+  return static_cast<string_with_kind>(obj);
 }
 
 bool string_with_kind::operator==(const string_with_kind& other) const {
@@ -148,9 +150,9 @@ bool string_with_kind::operator<(const string_with_kind& other) const {
   }
 }
 
-py::str string_with_kind::toPyObject() const {
-  return py::reinterpret_steal<py::str>(
-      PyUnicode_FromKindAndData(kind(), data(), (Py_ssize_t)size() / kind()));
+string_with_kind::operator py::str() const {
+  return py::reinterpret_steal<py::str>(PyUnicode_FromKindAndData(
+      _kind, data(), static_cast<ssize_t>(size() / _kind)));
 }
 
 string_with_kind string_with_kind::suffix() const {
