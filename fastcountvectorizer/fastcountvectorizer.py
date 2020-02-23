@@ -44,11 +44,13 @@
 
 import math
 import numbers
+from collections.abc import Mapping
 from operator import itemgetter
 
 import numpy as np
 import scipy.sparse as sp
 from sklearn.base import BaseEstimator
+from sklearn.exceptions import NotFittedError
 from sklearn.utils import _IS_32BIT
 
 from ._ext import _CharNgramCounter
@@ -97,6 +99,13 @@ class FastCountVectorizer(BaseEstimator):
         If float, the parameter represents a proportion of documents, integer
         absolute counts.
 
+    vocabulary : Mapping or iterable, default=None
+        Either a Mapping (e.g., a dict) where keys are terms and values are
+        indices in the feature matrix, or an iterable over terms. If not
+        given, a vocabulary is determined from the input documents. Indices
+        in the mapping should not be repeated and should not have any gap
+        between 0 and the largest index.
+
     binary : bool, default=False
         If True, all non zero counts are set to 1. This is useful for discrete
         probabilistic models that model binary events rather than integer
@@ -125,6 +134,7 @@ class FastCountVectorizer(BaseEstimator):
         analyzer="word",
         min_df=1,
         max_df=1.0,
+        vocabulary=None,
         binary=False,
         dtype=np.int64,
     ):
@@ -135,7 +145,7 @@ class FastCountVectorizer(BaseEstimator):
         self.max_df = max_df
         self.binary = binary
         self.dtype = dtype
-        self.vocabulary_ = None
+        self.vocabulary = vocabulary
 
     def fit(self, raw_documents, y=None):
         """Learn a vocabulary dictionary of all tokens in the raw documents.
@@ -171,8 +181,9 @@ class FastCountVectorizer(BaseEstimator):
         # Parameters are only validated on fit (not on __init__)
         # to keep compatibility with CountVectorizer.
         self._validate_params()
+        self._validate_vocabulary()
         self._validate_raw_documents(raw_documents)
-        vocab, X = self._count_vocab(raw_documents, fixed_vocab=False)
+        vocab, X = self._count_vocab(raw_documents, fixed_vocab=self.fixed_vocabulary_)
         if self.binary:
             X.data.fill(1)
         self.vocabulary_ = vocab
@@ -195,6 +206,7 @@ class FastCountVectorizer(BaseEstimator):
             Document-term matrix.
         """
         self._validate_raw_documents(raw_documents)
+        self._check_vocabulary()
         _, X = self._count_vocab(raw_documents, fixed_vocab=True)
         if self.binary:
             X.data.fill(1)
@@ -208,6 +220,7 @@ class FastCountVectorizer(BaseEstimator):
         feature_names : list
             A list of feature names.
         """
+        self._check_vocabulary()
         return [
             self._to_string(t)
             for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))
@@ -235,6 +248,46 @@ class FastCountVectorizer(BaseEstimator):
             raise ValueError(
                 "Iterable over raw text documents expected, " "string object received."
             )
+
+    def _validate_vocabulary(self):
+        vocabulary = self.vocabulary
+        if vocabulary is not None:
+            if isinstance(vocabulary, set):
+                vocabulary = sorted(vocabulary)
+            if not isinstance(vocabulary, Mapping):
+                vocab = {}
+                for i, t in enumerate(vocabulary):
+                    if vocab.setdefault(t, i) != i:
+                        msg = "Duplicate term in vocabulary: %r" % t
+                        raise ValueError(msg)
+                vocabulary = vocab
+            else:
+                indices = set(vocabulary.values())
+                if len(indices) != len(vocabulary):
+                    raise ValueError("Vocabulary contains repeated indices.")
+                for i in range(len(vocabulary)):
+                    if i not in indices:
+                        msg = "Vocabulary of size %d doesn't contain index " "%d." % (
+                            len(vocabulary),
+                            i,
+                        )
+                        raise ValueError(msg)
+            if not vocabulary:
+                raise ValueError("empty vocabulary passed to fit")
+            self.fixed_vocabulary_ = True
+            self.vocabulary_ = dict(vocabulary)
+        else:
+            self.fixed_vocabulary_ = False
+
+    def _check_vocabulary(self):
+        """Check if vocabulary is empty or missing (not fitted)"""
+        if not hasattr(self, "vocabulary_"):
+            self._validate_vocabulary()
+            if not self.fixed_vocabulary_:
+                raise NotFittedError("Vocabulary not fitted or provided")
+
+        if len(self.vocabulary_) == 0:
+            raise ValueError("Vocabulary is empty")
 
     def _count_vocab(self, docs, fixed_vocab=False):
         if fixed_vocab:
