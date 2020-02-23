@@ -1,3 +1,5 @@
+import io
+
 import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
@@ -17,12 +19,10 @@ def test_fastcountvectorizer_validate_params():
     FastCountVectorizer().fit(["foo"])
 
     FastCountVectorizer(input="content")
+    FastCountVectorizer(input="file")._validate_params()
+    FastCountVectorizer(input="filename")._validate_params()
     with pytest.raises(ValueError):
-        FastCountVectorizer(input="file").fit(["foo"])
-    with pytest.raises(ValueError):
-        FastCountVectorizer(input="filename").fit(["foo"])
-    with pytest.raises(ValueError):
-        FastCountVectorizer(input="unsupported").fit(["foo"])
+        FastCountVectorizer(input="unsupported")._validate_params()
 
     FastCountVectorizer(analyzer="char").fit(["foo"])
     FastCountVectorizer(analyzer="word").fit(["foo"])
@@ -67,6 +67,47 @@ def test_fastcountvectorizer_char_ngram1():
     )
 
 
+def test_unicode_decode_error_input_content():
+    text = "àbć"
+    doc = text.encode("utf-8")
+
+    cv = FastCountVectorizer(encoding="ascii", input="content", analyzer="word")
+    with pytest.raises(UnicodeDecodeError):
+        cv.fit([doc])
+
+    cv = FastCountVectorizer(encoding="ascii", input="content", analyzer="char")
+    with pytest.raises(UnicodeDecodeError):
+        cv.fit([doc])
+
+
+def test_unicode_decode_error_input_file_bytes():
+    text = "àbć"
+
+    cv = FastCountVectorizer(encoding="ascii", input="file", analyzer="word")
+    with pytest.raises(UnicodeDecodeError):
+        cv.fit([io.BytesIO(text.encode("utf-8"))])
+
+    cv = FastCountVectorizer(encoding="ascii", input="file", analyzer="char")
+    with pytest.raises(UnicodeDecodeError):
+        cv.fit([io.BytesIO(text.encode("utf-8"))])
+
+
+def test_unicode_decode_error_input_filename(tmp_path):
+    p = tmp_path / "input_file.txt"
+    with p.open("w", encoding="utf-8") as f:
+        text = "àbć"
+        f.write(text)
+    doc = str(p)
+
+    cv = FastCountVectorizer(encoding="ascii", input="filename", analyzer="word")
+    with pytest.raises(UnicodeDecodeError):
+        cv.fit([doc])
+
+    cv = FastCountVectorizer(encoding="ascii", input="filename", analyzer="char")
+    with pytest.raises(UnicodeDecodeError):
+        cv.fit([doc])
+
+
 def test_fastcountvectorizer_char_ngram1_strip_accents_ascii():
     cv = FastCountVectorizer(strip_accents="ascii", analyzer="char", ngram_range=(1, 1))
     check_cv(
@@ -79,7 +120,10 @@ def test_fastcountvectorizer_char_ngram1_strip_accents_unicode():
         strip_accents="unicode", analyzer="char", ngram_range=(1, 1)
     )
     check_cv(
-        cv, input=["àbć"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["a", "b", "c"]
+        cv, input=["ábc"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["a", "b", "c"]
+    )
+    check_cv(
+        cv, input=["ábc"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["a", "b", "c"]
     )
 
 

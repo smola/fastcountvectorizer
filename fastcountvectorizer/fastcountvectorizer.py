@@ -68,10 +68,26 @@ class FastCountVectorizer(BaseEstimator):
 
     Parameters
     ----------
-    input : string {'content'}
-        Indicates the input type. Currently, only 'content' (default value) is
-        supported. The input is expected to be a sequence of items of type
-        string.
+    input : string {'filename', 'file', 'content'}, default='content'
+        If 'filename', the sequence passed as an argument to fit is
+        expected to be a list of filenames that need reading to fetch
+        the raw content to analyze.
+
+        If 'file', the sequence items must have a 'read' method (file-like
+        object) that is called to fetch the bytes in memory.
+
+        Otherwise the input is expected to be a sequence of items that
+        can be of type string or byte.
+
+    encoding : string, default='utf-8'
+        If bytes or files are given to analyze, this encoding is used to
+        decode.
+
+    decode_error : {'strict', 'ignore', 'replace'}, default='strict'
+        Instruction on what to do if a byte sequence is given to analyze that
+        contains characters not of the given `encoding`. By default, it is
+        'strict', meaning that a UnicodeDecodeError will be raised. Other
+        values are 'ignore' and 'replace'.
 
     ngram_range : tuple (min_n, max_n), default=(1, 1)
         The lower and upper boundary of the range of n-values for different
@@ -134,6 +150,8 @@ class FastCountVectorizer(BaseEstimator):
     def __init__(
         self,
         input="content",
+        encoding="utf-8",
+        decode_error="strict",
         strip_accents=None,
         ngram_range=(1, 1),
         analyzer="word",
@@ -144,6 +162,8 @@ class FastCountVectorizer(BaseEstimator):
         dtype=np.int64,
     ):
         self.input = input
+        self.encoding = encoding
+        self.decode_error = decode_error
         self.strip_accents = strip_accents
         self.ngram_range = ngram_range
         self.analyzer = analyzer
@@ -233,10 +253,10 @@ class FastCountVectorizer(BaseEstimator):
         ]
 
     def _validate_params(self):
-        if self.input != "content":
-            raise ValueError('only input="content" is currently supported')
+        if self.input not in ("content", "file", "filename"):
+            raise ValueError("unsupported input=%s" % self.input)
         if self.analyzer not in ("char", "word"):
-            raise ValueError("supported analyzer=%s" % self.analyzer)
+            raise ValueError("unsupported analyzer=%s" % self.analyzer)
         min_n, max_m = self.ngram_range
         if min_n > max_m:
             raise ValueError(
@@ -364,6 +384,17 @@ class FastCountVectorizer(BaseEstimator):
         return int(math.ceil(min_df)), int(max_df)
 
     def _preprocess(self, doc):
+        if self.input == "content":
+            pass
+        elif self.input == "filename":
+            with open(doc, "r", encoding=self.encoding, errors=self.decode_error) as fh:
+                doc = fh.read()
+        elif self.input == "file":
+            doc = doc.read()
+
+        if isinstance(doc, bytes):
+            doc = doc.decode(self.encoding, self.decode_error)
+
         if self.strip_accents is not None:
             if self.strip_accents == "unicode":
                 doc = strip_accents_unicode(doc)
