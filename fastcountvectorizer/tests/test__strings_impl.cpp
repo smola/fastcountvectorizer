@@ -1,3 +1,6 @@
+
+#include <deque>
+
 #include "Python.h"
 #include "_strings.h"
 #include "catch.hpp"
@@ -114,4 +117,29 @@ TEST_CASE("string_with_kind to py::str") {
   string_with_kind str = make_string_with_kind<uint16_t>({0x30A1});
   py::str pystr = static_cast<py::str>(str);
   REQUIRE(static_cast<string_with_kind>(pystr) == str);
+}
+
+TEST_CASE("string_with_kind::join") {
+  std::deque<string_with_kind> lst;
+  lst.emplace_back(static_cast<string_with_kind>(py::str("")));
+  REQUIRE(string_with_kind::join(lst.cbegin(), lst.cend(), lst.size()) ==
+          make_string_with_kind<uint8_t>({}));
+
+  lst.emplace_back(static_cast<string_with_kind>(py::str("")));
+  REQUIRE(string_with_kind::join(lst.cbegin(), lst.cend(), lst.size()) ==
+          make_string_with_kind<uint8_t>({' '}));
+
+  lst.emplace_back(static_cast<string_with_kind>(py::str("abc")));
+  REQUIRE(string_with_kind::join(lst.cbegin(), lst.cend(), lst.size()) ==
+          make_string_with_kind<uint8_t>({' ', ' ', 'a', 'b', 'c'}));
+
+  lst.emplace_back(make_string_with_kind<uint16_t>({0x9d50}));
+  REQUIRE(
+      string_with_kind::join(lst.cbegin(), lst.cend(), lst.size()) ==
+      make_string_with_kind<uint16_t>({' ', ' ', 'a', 'b', 'c', ' ', 0x9d50}));
+
+  lst.emplace_back(make_string_with_kind<uint32_t>({0x2F804}));
+  REQUIRE(string_with_kind::join(lst.cbegin(), lst.cend(), lst.size()) ==
+          make_string_with_kind<uint32_t>(
+              {' ', ' ', 'a', 'b', 'c', ' ', 0x9d50, ' ', 0x2F804}));
 }

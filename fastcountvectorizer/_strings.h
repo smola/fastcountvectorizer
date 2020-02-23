@@ -4,6 +4,7 @@
 
 #include <pybind11/pybind11.h>
 
+#include <iterator>
 #include <string>
 
 #define XXH_INLINE_ALL
@@ -23,6 +24,9 @@ class string_with_kind {
   uint8_t kind() const { return _kind; }
 
   static string_with_kind compact(const char* str, size_t size, uint8_t kind);
+
+  template <class It>
+  static string_with_kind join(It begin, It end, std::size_t size);
 
   friend std::hash<string_with_kind>;
   const char* data() const { return base.data(); }
@@ -71,5 +75,12 @@ struct fixed_length_string_equal_to {
     return memcmp(lhs, rhs, length) == 0;
   }
 };
+
+std::size_t string_find(const void* s, std::size_t size, uint8_t kind, char c,
+                        std::size_t pos);
+
+std::size_t string_find(const string_with_kind& s, char c, std::size_t pos);
+
+std::size_t string_find(const py::str& s, char c, std::size_t pos);
 
 #endif  // FCV_STRINGS_H
