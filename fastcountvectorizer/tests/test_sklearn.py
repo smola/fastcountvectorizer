@@ -399,7 +399,6 @@ def test_countvectorizer_custom_vocabulary_pipeline():
     assert X.shape[1] == len(what_we_like)
 
 
-@xfail_fcv
 def test_countvectorizer_custom_vocabulary_repeated_indices():
     vocab = {"pizza": 0, "beer": 0}
     try:
@@ -408,7 +407,6 @@ def test_countvectorizer_custom_vocabulary_repeated_indices():
         assert "vocabulary contains repeated indices" in str(e).lower()
 
 
-@xfail_fcv
 def test_countvectorizer_custom_vocabulary_gap_index():
     vocab = {"pizza": 1, "beer": 2}
     try:
@@ -458,7 +456,6 @@ def test_fit_countvectorizer_twice():
     assert X1.shape[1] != X2.shape[1]
 
 
-@xfail_fcv
 def test_vectorizer():
     # raw documents as an iterator
     train_data = iter(ALL_FOOD_DOCS[:-1])
@@ -502,7 +499,6 @@ def test_vectorizer():
         assert counts_test[0, vocabulary["pizza"]] == 0
 
 
-@xfail_fcv
 def test_feature_names():
     cv = CountVectorizer(max_df=0.5)
 
@@ -807,7 +803,6 @@ def test_pickling_built_processors(factory):
     assert result == expected
 
 
-@xfail_fcv
 def test_countvectorizer_vocab_sets_when_pickling():
     # ensure that vocabulary of type set is coerced to a list to
     # preserve iteration ordering after deserialization
@@ -834,7 +829,6 @@ def test_countvectorizer_vocab_sets_when_pickling():
         assert cv.get_feature_names() == unpickled_cv.get_feature_names()
 
 
-@xfail_fcv
 def test_countvectorizer_vocab_dicts_when_pickling():
     rng = np.random.RandomState(0)
     vocab_words = np.array(
@@ -884,7 +878,6 @@ def test_stop_words_removal():
         assert_array_equal(stop_del_transform, vect_transform)
 
 
-@xfail_fcv
 def test_non_unique_vocab():
     vocab = ["a", "b", "c", "a", "a"]
     vect = CountVectorizer(vocabulary=vocab)
