@@ -51,6 +51,10 @@ import numpy as np
 import scipy.sparse as sp
 from sklearn.base import BaseEstimator
 from sklearn.exceptions import NotFittedError
+from sklearn.feature_extraction.text import (
+    strip_accents_ascii,
+    strip_accents_unicode,
+)
 from sklearn.utils import _IS_32BIT
 
 from ._ext import _CharNgramCounter
@@ -130,6 +134,7 @@ class FastCountVectorizer(BaseEstimator):
     def __init__(
         self,
         input="content",
+        strip_accents=None,
         ngram_range=(1, 1),
         analyzer="word",
         min_df=1,
@@ -139,6 +144,7 @@ class FastCountVectorizer(BaseEstimator):
         dtype=np.int64,
     ):
         self.input = input
+        self.strip_accents = strip_accents
         self.ngram_range = ngram_range
         self.analyzer = analyzer
         self.min_df = min_df
@@ -302,6 +308,7 @@ class FastCountVectorizer(BaseEstimator):
             self.analyzer, min_ngram, max_ngram, fixed_vocab=vocab
         )
         for doc in docs:
+            doc = self._preprocess(doc)
             counter.process(doc)
             n_doc += 1
 
@@ -355,3 +362,15 @@ class FastCountVectorizer(BaseEstimator):
             raise ValueError("max_df corresponds to < documents than min_df")
 
         return int(math.ceil(min_df)), int(max_df)
+
+    def _preprocess(self, doc):
+        if self.strip_accents is not None:
+            if self.strip_accents == "unicode":
+                doc = strip_accents_unicode(doc)
+            elif self.strip_accents == "ascii":
+                doc = strip_accents_ascii(doc)
+            else:
+                raise ValueError(
+                    'Invalid value for "strip_accents": %s' % self.strip_accents
+                )
+        return doc

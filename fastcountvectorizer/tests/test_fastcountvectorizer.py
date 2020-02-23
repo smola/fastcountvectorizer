@@ -67,6 +67,22 @@ def test_fastcountvectorizer_char_ngram1():
     )
 
 
+def test_fastcountvectorizer_char_ngram1_strip_accents_ascii():
+    cv = FastCountVectorizer(strip_accents="ascii", analyzer="char", ngram_range=(1, 1))
+    check_cv(
+        cv, input=["ábc"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["a", "b", "c"]
+    )
+
+
+def test_fastcountvectorizer_char_ngram1_strip_accents_unicode():
+    cv = FastCountVectorizer(
+        strip_accents="unicode", analyzer="char", ngram_range=(1, 1)
+    )
+    check_cv(
+        cv, input=["àbć"], output=lil_matrix([[1, 1, 1]]).tocsr(), vocab=["a", "b", "c"]
+    )
+
+
 def test_fastcountvectorizer_word_ngram1():
     cv = FastCountVectorizer(analyzer="word", ngram_range=(1, 1))
     check_cv(
