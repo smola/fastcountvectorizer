@@ -47,7 +47,7 @@ from sklearn.feature_extraction.text import strip_tags
 from sklearn.feature_extraction.text import strip_accents_unicode
 from sklearn.feature_extraction.text import strip_accents_ascii
 
-from fastcountvectorizer import FastCountVectorizer as CountVectorizer
+from fastcountvectorizer import CountVectorizer
 from sklearn.feature_extraction.text import VectorizerMixin
 
 from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
@@ -415,7 +415,6 @@ def test_countvectorizer_custom_vocabulary_gap_index():
         assert "doesn't contain index" in str(e).lower()
 
 
-@xfail_fcv
 def test_countvectorizer_stop_words():
     cv = CountVectorizer()
     cv.set_params(stop_words="english")

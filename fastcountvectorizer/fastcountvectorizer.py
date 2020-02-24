@@ -44,6 +44,7 @@
 
 import math
 import numbers
+import re
 import warnings
 from collections.abc import Mapping
 from operator import itemgetter
@@ -59,6 +60,7 @@ from sklearn.feature_extraction.text import (
 from sklearn.utils import _IS_32BIT
 
 from ._ext import _CharNgramCounter
+from ._stopwords import ENGLISH_STOP_WORDS
 
 
 class FastCountVectorizer(BaseEstimator):
@@ -66,6 +68,10 @@ class FastCountVectorizer(BaseEstimator):
 
     This implementation produces a sparse representation of the counts using
     scipy.sparse.csr_matrix.
+
+    .. note:: This class is has some differences compared to
+       `scikit-learn's CountVectorizer <https://scikit-learn.org/stable/modules/generated/sklearn.feature_extraction.text.CountVectorizer.html>`_.
+       These are noted below. You can also check the alternative compatibility API at :py:class:`CountVectorizer`.
 
     Parameters
     ----------
@@ -103,8 +109,8 @@ class FastCountVectorizer(BaseEstimator):
 
         .. warning:: FastCountVectorizer does not apply any kind of
            preprocessing to inputs. Note that this is different from
-           scikit-learn's CountVectorizer performs, which applies whitespace
-           normalization for the char ngram analyzer.
+           CountVectorizer, which applies white space normalization for the char
+           analyzer.
 
     stop_words : list, default=None
         If a list, that list is assumed to contain stop words, all of which
@@ -264,6 +270,9 @@ class FastCountVectorizer(BaseEstimator):
             for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))
         ]
 
+    def _compat_mode(self):
+        return False
+
     def _validate_params(self):
         self._warn_for_unused_params()
         if self.input not in ("content", "file", "filename"):
@@ -293,7 +302,18 @@ class FastCountVectorizer(BaseEstimator):
 
     def _normalize_params(self):
         if self.stop_words is not None and not isinstance(self.stop_words, frozenset):
-            self.stop_words = frozenset(self.stop_words)
+            if self._compat_mode():
+                if self.stop_words == "english":
+                    self.stop_words = ENGLISH_STOP_WORDS
+                elif isinstance(self.stop_words, str):
+                    raise ValueError("not a built-in stop list: %s" % self.stop_words)
+                else:
+                    self.stop_words = frozenset(self.stop_words)
+            else:
+                if isinstance(self.stop_words, str):
+                    raise ValueError("stop_words cannot be a string")
+                else:
+                    self.stop_words = frozenset(self.stop_words)
 
     def _validate_raw_documents(self, raw_documents):
         if isinstance(raw_documents, str):
@@ -413,6 +433,8 @@ class FastCountVectorizer(BaseEstimator):
 
         return int(math.ceil(min_df)), int(max_df)
 
+    _white_spaces = re.compile(r"\s\s+")
+
     def _preprocess(self, doc):
         if self.input == "content":
             pass
@@ -434,4 +456,8 @@ class FastCountVectorizer(BaseEstimator):
                 raise ValueError(
                     'Invalid value for "strip_accents": %s' % self.strip_accents
                 )
+
+        if self.analyzer == "char" and self._compat_mode():
+            doc = self._white_spaces.sub(" ", doc)
+
         return doc
