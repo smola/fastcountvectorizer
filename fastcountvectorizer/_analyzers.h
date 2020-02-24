@@ -29,7 +29,7 @@ class ngram_analyzer {
       const string_with_kind& s, unsigned int min_n,
       unsigned int max_n) const = 0;
 
-  static ngram_analyzer* make(const std::string& type);
+  static ngram_analyzer* make(const std::string& type, py::object stop_words);
 };
 
 template <class Counters>
@@ -126,13 +126,15 @@ class word_ngram_analysis_counts
     : public base_ngram_analysis_counts<string_with_kind_counter_map> {
  private:
   word_ngram_analysis_counts(unsigned int n, const py::str& doc, uint8_t kind,
-                             const py::object& token_pattern);
+                             const py::object& token_pattern,
+                             const py::object& stop_words);
 
  public:
   word_ngram_analysis_counts(unsigned int n, const py::str& doc,
-                             const py::object& token_pattern)
+                             const py::object& token_pattern,
+                             const py::object& stop_words)
       : word_ngram_analysis_counts(n, doc, (uint8_t)PyUnicode_KIND(doc.ptr()),
-                                   token_pattern) {}
+                                   token_pattern, stop_words) {}
   ~word_ngram_analysis_counts() override = default;
 
   py::str pykey() const override;
@@ -142,9 +144,10 @@ class word_ngram_analysis_counts
 class word_ngram_prefix_handler {
  private:
   py::object re_token_pattern;
+  py::object stop_words;
 
  public:
-  word_ngram_prefix_handler();
+  word_ngram_prefix_handler(py::object stop_words);
   string_with_kind prefix(unsigned int n, const py::str& doc) const;
   string_with_kind suffix(const string_with_kind& s) const;
   std::vector<string_with_kind> prefix_ngrams(const string_with_kind& s,
@@ -156,12 +159,13 @@ class word_ngram_analyzer
     : public base_ngram_analyzer<word_ngram_prefix_handler> {
  private:
   py::object re_token_pattern;
+  py::object stop_words;
 
  public:
-  word_ngram_analyzer();
+  explicit word_ngram_analyzer(py::object stop_words);
   ngram_analysis_counts* analyze(unsigned int n,
                                  const py::str& doc) const override {
-    return new word_ngram_analysis_counts(n, doc, re_token_pattern);
+    return new word_ngram_analysis_counts(n, doc, re_token_pattern, stop_words);
   }
 };
 

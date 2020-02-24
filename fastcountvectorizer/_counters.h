@@ -29,7 +29,8 @@ class CharNgramCounter {
 
  public:
   CharNgramCounter(const std::string& analyzer, unsigned int min_n,
-                   unsigned int max_n, py::object fixed_vocab);
+                   unsigned int max_n, py::object fixed_vocab,
+                   py::object stop_words);
   ~CharNgramCounter();
 
   void process(const py::str& obj);

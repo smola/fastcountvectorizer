@@ -22,9 +22,12 @@ namespace py = pybind11;
 CharNgramCounter::CharNgramCounter(const std::string& a,
                                    const unsigned int min_n,
                                    const unsigned int max_n,
-                                   py::object fixed_vocab)
-    : min_n(min_n), max_n(max_n), fixed_vocab(fixed_vocab) {
-  analyzer = ngram_analyzer::make(a);
+                                   py::object fixed_vocab,
+                                   py::object stop_words)
+    : min_n(min_n),
+      max_n(max_n),
+      fixed_vocab(fixed_vocab),
+      analyzer(ngram_analyzer::make(a, stop_words)) {
   result_array_len = 0;
   if (need_expand_counts()) {
     prefixes = new std::vector<string_with_kind>();
