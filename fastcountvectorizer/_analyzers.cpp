@@ -11,11 +11,12 @@
 
 namespace py = pybind11;
 
-ngram_analyzer* ngram_analyzer::make(const std::string& type) {
+ngram_analyzer* ngram_analyzer::make(const std::string& type,
+                                     py::object stop_words) {
   if (type == "char") {
     return new char_ngram_analyzer();
   } else if (type == "word") {
-    return new word_ngram_analyzer();
+    return new word_ngram_analyzer(std::move(stop_words));
   } else {
     throw std::invalid_argument("invalid analyzer type");
   }
@@ -86,15 +87,18 @@ py::object make_token_pattern() {
   return re.attr("compile")(R"((?u)\b\w\w+\b)");
 }
 
-word_ngram_analyzer::word_ngram_analyzer()
-    : re_token_pattern(make_token_pattern()) {}
+word_ngram_analyzer::word_ngram_analyzer(py::object stop_words)
+    : base_ngram_analyzer(word_ngram_prefix_handler(stop_words)),
+      re_token_pattern(make_token_pattern()),
+      stop_words(stop_words) {}
 
-word_ngram_prefix_handler::word_ngram_prefix_handler()
-    : re_token_pattern(make_token_pattern()) {}
+word_ngram_prefix_handler::word_ngram_prefix_handler(py::object stop_words)
+    : re_token_pattern(make_token_pattern()),
+      stop_words(std::move(stop_words)) {}
 
 word_ngram_analysis_counts::word_ngram_analysis_counts(
     unsigned int n, const py::str& doc, uint8_t Py_UNUSED(kind),
-    const py::object& token_pattern)
+    const py::object& token_pattern, const py::object& stop_words)
     : base_ngram_analysis_counts<string_with_kind_counter_map>(
           string_with_kind_counter_map()) {
   std::deque<string_with_kind> token_queue;
@@ -102,6 +106,9 @@ word_ngram_analysis_counts::word_ngram_analysis_counts(
   for (auto it = py::cast<py::iterator>(re_finditer(doc));
        it != py::iterator::sentinel(); ++it) {
     py::str token = it->attr("group")().cast<py::str>();
+    if (!stop_words.is_none() && stop_words.cast<py::set>().contains(token)) {
+      continue;
+    }
     token_queue.push_back(static_cast<string_with_kind>(token));
     if (token_queue.size() > n) {
       token_queue.pop_front();
@@ -131,6 +138,9 @@ string_with_kind word_ngram_prefix_handler::prefix(unsigned int n,
   for (py::iterator it = re_finditer(doc);
        it != py::iterator::sentinel() && token_queue.size() < n; ++it) {
     py::str token = it->attr("group")();
+    if (!stop_words.is_none() && stop_words.contains(token)) {
+      continue;
+    }
     token_queue.push_back(static_cast<string_with_kind>(token));
   }
   return string_with_kind::join(token_queue.cbegin(), token_queue.cend(),

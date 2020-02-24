@@ -44,6 +44,7 @@
 
 import math
 import numbers
+import warnings
 from collections.abc import Mapping
 from operator import itemgetter
 
@@ -105,6 +106,15 @@ class FastCountVectorizer(BaseEstimator):
            scikit-learn's CountVectorizer performs, which applies whitespace
            normalization for the char ngram analyzer.
 
+    stop_words : list, default=None
+        If a list, that list is assumed to contain stop words, all of which
+        will be removed from the resulting tokens.
+        Only applies if ``analyzer == 'word'``.
+
+        If None, no stop words will be used. max_df can be set to a value
+        in the range [0.7, 1.0) to automatically detect and filter stop
+        words based on intra corpus document frequency of terms.
+
     max_df : float in range [0.0, 1.0] or int, default=1.0
         When building the vocabulary ignore terms that have a document
         frequency strictly higher than the given threshold (corpus-specific
@@ -155,6 +165,7 @@ class FastCountVectorizer(BaseEstimator):
         strip_accents=None,
         ngram_range=(1, 1),
         analyzer="word",
+        stop_words=None,
         min_df=1,
         max_df=1.0,
         vocabulary=None,
@@ -167,6 +178,7 @@ class FastCountVectorizer(BaseEstimator):
         self.strip_accents = strip_accents
         self.ngram_range = ngram_range
         self.analyzer = analyzer
+        self.stop_words = stop_words
         self.min_df = min_df
         self.max_df = max_df
         self.binary = binary
@@ -253,6 +265,7 @@ class FastCountVectorizer(BaseEstimator):
         ]
 
     def _validate_params(self):
+        self._warn_for_unused_params()
         if self.input not in ("content", "file", "filename"):
             raise ValueError("unsupported input=%s" % self.input)
         if self.analyzer not in ("char", "word"):
@@ -268,6 +281,19 @@ class FastCountVectorizer(BaseEstimator):
                 "Invalid value for ngram_range=%s "
                 "minimum ngram size must be equal or greater than 1."
             )
+        self._normalize_params()
+
+    def _warn_for_unused_params(self):
+        if self.analyzer != "word":
+            if self.stop_words is not None:
+                warnings.warn(
+                    "The parameter 'stop_words' will not be used"
+                    " since 'analyzer' != 'word'"
+                )
+
+    def _normalize_params(self):
+        if self.stop_words is not None and not isinstance(self.stop_words, frozenset):
+            self.stop_words = frozenset(self.stop_words)
 
     def _validate_raw_documents(self, raw_documents):
         if isinstance(raw_documents, str):
@@ -325,7 +351,11 @@ class FastCountVectorizer(BaseEstimator):
 
         n_doc = 0
         counter = _CharNgramCounter(
-            self.analyzer, min_ngram, max_ngram, fixed_vocab=vocab
+            self.analyzer,
+            min_ngram,
+            max_ngram,
+            fixed_vocab=vocab,
+            stop_words=self.stop_words,
         )
         for doc in docs:
             doc = self._preprocess(doc)

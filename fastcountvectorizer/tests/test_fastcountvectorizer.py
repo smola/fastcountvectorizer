@@ -214,3 +214,26 @@ def test_fastcountvectorizer_word_ngram1_3():
         ],
         output=lil_matrix([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]).tocsr(),
     )
+
+
+def test_fastcountvectorizer_word_ngram1_3_stop_words():
+    cv = FastCountVectorizer(analyzer="word", ngram_range=(1, 3), stop_words=["xxx"])
+    check_cv(
+        cv,
+        input=["aaa xxx bbb ccc xxx xxx eee fff"],
+        vocab=[
+            "aaa",
+            "aaa bbb",
+            "aaa bbb ccc",
+            "bbb",
+            "bbb ccc",
+            "bbb ccc eee",
+            "ccc",
+            "ccc eee",
+            "ccc eee fff",
+            "eee",
+            "eee fff",
+            "fff",
+        ],
+        output=lil_matrix([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]).tocsr(),
+    )

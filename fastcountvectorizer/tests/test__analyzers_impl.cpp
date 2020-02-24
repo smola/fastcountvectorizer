@@ -3,7 +3,7 @@
 #include "test_utils.h"
 
 TEST_CASE("char analyzer prefix") {
-  ngram_analyzer* analyzer = ngram_analyzer::make("char");
+  ngram_analyzer* analyzer = ngram_analyzer::make("char", py::none());
 
   REQUIRE(analyzer->prefix(0, py::str("")) == string_with_kind("", 0, 1));
   REQUIRE(analyzer->prefix(1, py::str("")) == string_with_kind("", 0, 1));
@@ -22,7 +22,7 @@ TEST_CASE("char analyzer prefix") {
 }
 
 TEST_CASE("char analyzer suffix") {
-  ngram_analyzer* analyzer = ngram_analyzer::make("char");
+  ngram_analyzer* analyzer = ngram_analyzer::make("char", py::none());
 
   REQUIRE(analyzer->suffix(string_with_kind("", 0, 1)) ==
           string_with_kind("", 0, 1));
@@ -35,7 +35,7 @@ TEST_CASE("char analyzer suffix") {
 }
 
 TEST_CASE("char analyzer prefix_ngrams") {
-  ngram_analyzer* analyzer = ngram_analyzer::make("char");
+  ngram_analyzer* analyzer = ngram_analyzer::make("char", py::none());
 
   REQUIRE(analyzer->prefix_ngrams(string_with_kind("", 0, 1), 1, 1) ==
           std::vector<string_with_kind>({}));
@@ -58,7 +58,7 @@ TEST_CASE("char analyzer prefix_ngrams") {
 }
 
 TEST_CASE("word analyzer prefix") {
-  ngram_analyzer* analyzer = ngram_analyzer::make("word");
+  ngram_analyzer* analyzer = ngram_analyzer::make("word", py::none());
 
   REQUIRE(analyzer->prefix(0, py::str("")) == string_with_kind("", 0, 1));
   REQUIRE(analyzer->prefix(1, py::str("")) == string_with_kind("", 0, 1));
@@ -81,7 +81,7 @@ TEST_CASE("word analyzer prefix") {
 }
 
 TEST_CASE("word analyzer suffix") {
-  ngram_analyzer* analyzer = ngram_analyzer::make("word");
+  ngram_analyzer* analyzer = ngram_analyzer::make("word", py::none());
 
   REQUIRE(analyzer->suffix(string_with_kind("", 0, 1)) ==
           string_with_kind("", 0, 1));
@@ -94,7 +94,7 @@ TEST_CASE("word analyzer suffix") {
 }
 
 TEST_CASE("word analyzer prefix_ngrams") {
-  ngram_analyzer* analyzer = ngram_analyzer::make("word");
+  ngram_analyzer* analyzer = ngram_analyzer::make("word", py::none());
 
   REQUIRE(analyzer->prefix_ngrams(string_with_kind("", 0, 1), 1, 1) ==
           std::vector<string_with_kind>({}));
