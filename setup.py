@@ -105,7 +105,6 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="fastcountvectorizer",
-    version="0.1.0",
     author="Santiago M. Mola",
     author_email="santi@mola.io",
     description="A faster CountVectorizer alternative.",
@@ -134,8 +133,9 @@ setuptools.setup(
     ],
     python_requires=">=3.5",
     install_requires=["scikit-learn", "numpy", "pybind11>=2.4"],
-    setup_requires=["pybind11>=2.4"],
+    setup_requires=["setuptools_scm", "pybind11>=2.4"],
     tests_require=["pytest"],
     ext_modules=ext_modules,
     cmdclass={"build_ext": BuildExt},
+    use_scm_version={"write_to": "fastcountvectorizer/version.py"},
 )
