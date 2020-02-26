@@ -54,11 +54,19 @@ master_doc = "index"
 html_theme = "sphinx_rtd_theme"
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
+html_theme_options = {
+    "navigation_depth": 4,
+    "collapse_navigation": False,
+}
+
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 # html_static_path = ["_static"]
 
+html_sidebars = {
+    "**": ["globaltoc.html", "relations.html", "sourcelink.html", "searchbox.html"]
+}
 
 # Enable sphinx.ext.napoleon for numpy-style docstrins
 extensions += ["sphinx.ext.napoleon"]

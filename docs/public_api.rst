@@ -2,6 +2,12 @@ fastcountvectorizer
 ===================
 
 .. automodule:: fastcountvectorizer
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   :no-members:
+   :no-undoc-members:
+
+.. toctree::
+   :maxdepth: 2
+   :caption: API Reference
+
+   fastcountvectorizer_api
+   countvectorizer_api
