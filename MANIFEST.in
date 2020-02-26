@@ -1,6 +1,8 @@
 recursive-include fastcountvectorizer *.h
 recursive-include fastcountvectorizer *.hpp
 recursive-include fastcountvectorizer *.cpp
+include asv.conf.json
+recursive-include benchmarks *.py
 global-include CMakeLists.txt
 global-include .clang-format
 global-include requirements.txt
