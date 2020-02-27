@@ -4,15 +4,13 @@ FastCountVectorizer is a faster alternative to [scikit-learn](https://scikit-lea
 
 ## Installation
 
-TBD
+```
+pip install fastcountvectorizer
+```
 
 ## Documentation
 
-TBD
-
-## Deviations from scikit-learn implementation
-
-FastCountVectorizer behaves mostly as a subset of CountVectorizer. However, it doesn't do whitespace normalization. This is arguably a better default behavior, but [fixing it in scikit-learn would break backwards compatibility](https://github.com/scikit-learn/scikit-learn/issues/7475).
+See [full documentation](https://fastcountvectorizer.readthedocs.io/en/latest/).
 
 ## License
 
