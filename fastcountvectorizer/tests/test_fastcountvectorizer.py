@@ -67,6 +67,17 @@ def test_fastcountvectorizer_char_ngram1():
     )
 
 
+def test_fastcountvectorizer_save_stop_words():
+    cv = FastCountVectorizer(analyzer="char", min_df=2, save_stop_words=True)
+    cv.fit(["ab", "ac"])
+    assert hasattr(cv, "stop_words_")
+    assert cv.stop_words_ == {"b", "c"}
+
+    cv = FastCountVectorizer(analyzer="char", min_df=2, save_stop_words=False)
+    cv.fit(["ab", "ac"])
+    assert not hasattr(cv, "stop_words_")
+
+
 def test_unicode_decode_error_input_content():
     text = "àbć"
     doc = text.encode("utf-8")

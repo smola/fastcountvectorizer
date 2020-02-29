@@ -161,6 +161,13 @@ class FastCountVectorizer(BaseEstimator):
 
           - occurred in too many documents (`max_df`)
           - occurred in too few documents (`min_df`)
+
+        This is only available if no `vocabulary` was given and `save_stop_words` is
+        `True`.
+
+        .. warning:: The `stop_words_` attribute can get large and increase the model
+            size when pickling. This attribute is provided only for introspection and
+            can be safely removed using delattr or set to None before pickling.
     """
 
     def __init__(
@@ -172,6 +179,7 @@ class FastCountVectorizer(BaseEstimator):
         ngram_range=(1, 1),
         analyzer="word",
         stop_words=None,
+        save_stop_words=False,
         min_df=1,
         max_df=1.0,
         vocabulary=None,
@@ -185,6 +193,7 @@ class FastCountVectorizer(BaseEstimator):
         self.ngram_range = ngram_range
         self.analyzer = analyzer
         self.stop_words = stop_words
+        self.save_stop_words = save_stop_words
         self.min_df = min_df
         self.max_df = max_df
         self.binary = binary
@@ -376,6 +385,7 @@ class FastCountVectorizer(BaseEstimator):
             max_ngram,
             fixed_vocab=vocab,
             stop_words=self.stop_words,
+            save_stop_words=self.save_stop_words,
         )
         for doc in docs:
             doc = self._preprocess(doc)
@@ -387,10 +397,13 @@ class FastCountVectorizer(BaseEstimator):
 
             min_df, max_df = self._frequency_limits(n_doc)
             if min_df > 1 or max_df < n_doc:
-                self.stop_words_ = counter.limit_features(min_df, max_df)
+                stop_words = counter.limit_features(min_df, max_df)
             else:
-                self.stop_words_ = set()
+                stop_words = set()
                 counter.sort_features()
+
+            if self.save_stop_words:
+                self.stop_words_ = stop_words
 
             vocab = counter.get_vocab()
 
