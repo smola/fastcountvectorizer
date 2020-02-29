@@ -16,6 +16,7 @@ class CharNgramCounter {
   py::object fixed_vocab;
   vocab_map vocab;
   ngram_analyzer* analyzer;
+  bool save_stop_words;
 
   std::size_t result_array_len;
   std::vector<string_with_kind>* prefixes;
@@ -30,7 +31,7 @@ class CharNgramCounter {
  public:
   CharNgramCounter(const std::string& analyzer, unsigned int min_n,
                    unsigned int max_n, py::object fixed_vocab,
-                   py::object stop_words);
+                   py::object stop_words, bool save_stop_words);
   ~CharNgramCounter();
 
   void process(const py::str& obj);

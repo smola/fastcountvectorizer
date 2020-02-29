@@ -19,15 +19,14 @@
 
 namespace py = pybind11;
 
-CharNgramCounter::CharNgramCounter(const std::string& a,
-                                   const unsigned int min_n,
-                                   const unsigned int max_n,
-                                   py::object fixed_vocab,
-                                   py::object stop_words)
+CharNgramCounter::CharNgramCounter(
+    const std::string& a, const unsigned int min_n, const unsigned int max_n,
+    py::object fixed_vocab, py::object stop_words, const bool save_stop_words)
     : min_n(min_n),
       max_n(max_n),
       fixed_vocab(fixed_vocab),
-      analyzer(ngram_analyzer::make(a, stop_words)) {
+      analyzer(ngram_analyzer::make(a, stop_words)),
+      save_stop_words(save_stop_words) {
   result_array_len = 0;
   if (need_expand_counts()) {
     prefixes = new std::vector<string_with_kind>();
@@ -253,7 +252,9 @@ py::set CharNgramCounter::limit_features(const std::size_t min_df,
       new_index++;
     } else {
       py::str pystr = static_cast<py::str>(it->first);
-      stop_words.add(pystr);
+      if (save_stop_words) {
+        stop_words.add(pystr);
+      }
       vocab.erase(it->first);
     }
   }

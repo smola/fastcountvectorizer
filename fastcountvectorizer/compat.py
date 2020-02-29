@@ -103,6 +103,12 @@ class CountVectorizer(FastCountVectorizer):
 
           - occurred in too many documents (`max_df`)
           - occurred in too few documents (`min_df`)
+
+        This is only available if no `vocabulary` was given.
+
+        .. warning:: The `stop_words_` attribute can get large and increase the model
+            size when pickling. This attribute is provided only for introspection and
+            can be safely removed using delattr or set to None before pickling.
     """
 
     def __init__(
@@ -128,6 +134,7 @@ class CountVectorizer(FastCountVectorizer):
             ngram_range=ngram_range,
             analyzer=analyzer,
             stop_words=stop_words,
+            save_stop_words=True,
             min_df=min_df,
             max_df=max_df,
             vocabulary=vocabulary,
